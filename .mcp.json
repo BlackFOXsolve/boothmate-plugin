@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "boothmate": {
+      "command": "uv",
+      "args": ["run", "--frozen", "--directory", "${CLAUDE_PLUGIN_ROOT}", "boothmate"]
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "wilderfold",
+  "owner": {
+    "name": "Wilderfold LLC"
+  },
+  "plugins": [
+    {
+      "name": "boothmate",
+      "source": "./",
+      "description": "Make beats and run recording sessions in FL Studio by just asking. One-call trap, drill, boom bap, R&B, lo-fi and Jersey club beats; chords and 808s in any key; booth commands like 'run it back'; rapper vocal chains; plus full mixer, plugin and piano-roll control. Windows and macOS."
+    }
+  ]
+}
