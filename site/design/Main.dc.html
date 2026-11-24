@@ -452,9 +452,9 @@ BoothMate
 <div style="position: relative; z-index: 1; min-height: 300px; padding: 28px; display: flex; flex-direction: column; justify-content: center">
 
 <sc-if value="{{isAdd}}" hint-placeholder-val="{{ false }}"><div class="bm-screen" style="display: flex; flex-direction: column; gap: 14px">
-<div style="font-size: 13px; color: #8E8E99">BoothMate-0.1.6.mcpb › Claude › Install extension</div>
+<div style="font-size: 13px; color: #8E8E99">BoothMate-0.1.9.mcpb › Claude › Install extension</div>
 <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; background: #1E1E25; border: 1px solid #2A2A33; border-radius: 14px; padding: 18px">
-<div style="display: flex; gap: 14px; align-items: center"><div style="width: 44px; height: 44px; border-radius: 10px; border: 2px solid {{accent}}; display: flex; align-items: flex-end; justify-content: center; gap: 4px; padding-bottom: 9px; box-sizing: border-box" aria-hidden="true"><span style="width: 4px; height: 10px; background: {{accent}}"></span><span style="width: 4px; height: 18px; background: {{accent}}"></span><span style="width: 4px; height: 14px; background: {{accent}}"></span></div><div><div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px">BoothMate</div><div style="font-size: 14px; color: #8E8E99">BlackAcre AI LLC · version 0.1.6</div></div></div>
+<div style="display: flex; gap: 14px; align-items: center"><div style="width: 44px; height: 44px; border-radius: 10px; border: 2px solid {{accent}}; display: flex; align-items: flex-end; justify-content: center; gap: 4px; padding-bottom: 9px; box-sizing: border-box" aria-hidden="true"><span style="width: 4px; height: 10px; background: {{accent}}"></span><span style="width: 4px; height: 18px; background: {{accent}}"></span><span style="width: 4px; height: 14px; background: {{accent}}"></span></div><div><div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px">BoothMate</div><div style="font-size: 14px; color: #8E8E99">BlackAcre AI LLC · version 0.1.9</div></div></div>
 <div class="bm-target" style="background: {{accent}}; color: #0E0E11; font-weight: 600; padding: 10px 20px; border-radius: 10px">Install<svg class="bm-ptr" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2l16 9-7 2-3 7z" fill="#ECECEF" stroke="#0E0E11" stroke-width="1.5"></path></svg></div>
 </div>
 </div></sc-if>
@@ -524,7 +524,7 @@ BoothMate
 <h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 24px">{{stepTitle}}</h3>
 <p style="margin: 0; color: #B4B4BE">{{stepBody}}</p>
 <sc-if value="{{showDownload}}" hint-placeholder-val="{{ false }}"><div class="bm-pop" style="display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding-top: 10px">
-<a href="https://github.com/BlackFOXsolve/boothmate-plugin/raw/main/downloads/BoothMate-0.1.6.mcpb" target="_blank" rel="noopener" class="bm-btn bm-btn-p bm-dl" style="background-color: {{accent}}; color: #0E0E11; text-decoration: none; font-weight: 600; padding: 14px 24px; border-radius: 12px; min-height: 48px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2v10M4.5 7.5L9 12l4.5-4.5M3 15.5h12" fill="none" stroke="#0E0E11" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Download BoothMate-0.1.6.mcpb</a>
+<a href="https://github.com/BlackFOXsolve/boothmate-plugin/raw/main/downloads/BoothMate-0.1.9.mcpb" target="_blank" rel="noopener" class="bm-btn bm-btn-p bm-dl" style="background-color: {{accent}}; color: #0E0E11; text-decoration: none; font-weight: 600; padding: 14px 24px; border-radius: 12px; min-height: 48px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2v10M4.5 7.5L9 12l4.5-4.5M3 15.5h12" fill="none" stroke="#0E0E11" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Download BoothMate-0.1.9.mcpb</a>
 <span style="font-size: 14px; color: #8E8E99">Free · 426 KB · Windows and Mac. Using Claude Code? <a href="https://github.com/BlackFOXsolve/boothmate-plugin#install" target="_blank" rel="noopener">Install commands</a></span>
 </div></sc-if>
 </div>
@@ -587,7 +587,7 @@ class Component extends DCLogic {
 bmSteps() {
 return {
   win: [
-    { title: 'Install BoothMate', body: 'Click the download button below, then double-click BoothMate-0.1.6.mcpb. The Claude desktop app opens and asks to install it. Click Install. It is free.', screen: 'add', win: 'Claude' },
+    { title: 'Install BoothMate', body: 'Click the download button below, then double-click BoothMate-0.1.9.mcpb. The Claude desktop app opens and asks to install it. Click Install. It is free.', screen: 'add', win: 'Claude' },
     { title: 'Install uv', body: 'Open PowerShell, paste this line and press Enter. uv installs the Python that BoothMate runs on. Then quit Claude fully and reopen it.', screen: 'term', win: 'Windows PowerShell', prompt: 'PS>', cmd: 'powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"' },
     { title: 'Create two MIDI ports', body: 'Install the free loopMIDI app. Delete its default port and add two named exactly FLStudioMCP RX and FLStudioMCP TX. Leave loopMIDI running.', screen: 'loop', win: 'loopMIDI' },
     { title: 'Ask Claude to set it up', body: 'Open FL Studio once, then tell Claude "set up BoothMate". It installs everything FL Studio needs. Restart FL Studio if it was open.', screen: 'chat', win: 'Claude', user: 'Set up BoothMate.', reply: 'Installed the BoothMate scripts into FL Studio. Close FL Studio fully and reopen it, then switch it on in MIDI Settings.' },
@@ -596,7 +596,7 @@ return {
     { title: 'Make a beat', body: 'That is it. Ask for a beat in plain words and press play.', screen: 'chat', go: true, win: 'Claude', user: 'Make me a dark trap beat in F# minor.', reply: 'Done: trap at 140 BPM in F# minor. Drums, chords and 808 are in. Hit play.' }
   ],
   mac: [
-    { title: 'Install BoothMate', body: 'Click the download button below, then double-click BoothMate-0.1.6.mcpb. The Claude desktop app opens and asks to install it. Click Install. It is free.', screen: 'add', win: 'Claude' },
+    { title: 'Install BoothMate', body: 'Click the download button below, then double-click BoothMate-0.1.9.mcpb. The Claude desktop app opens and asks to install it. Click Install. It is free.', screen: 'add', win: 'Claude' },
     { title: 'Install uv', body: 'Open Terminal, paste this line and press Return. uv installs the Python that BoothMate runs on. Then quit Claude fully and reopen it.', screen: 'term', win: 'Terminal', prompt: '$', cmd: 'curl -LsSf https://astral.sh/uv/install.sh | sh' },
     { title: 'Ask Claude to set it up', body: 'Tell Claude "set up BoothMate". It installs the FL Studio scripts and opens FL Studio for you.', screen: 'chat', win: 'Claude', user: 'Set up BoothMate.', reply: 'Installed. FL Studio is open; one switch left in MIDI Settings and I can flip it for you.' },
     { title: 'Switch it on in FL Studio', body: 'Once per computer: Options › MIDI Settings. Select BoothMate Studio under Input, turn on Enable, set Controller type to BoothMate Studio and Port to 0, then set the BoothMate Studio output Port to 0. Claude can do this for you if it can use your screen.', screen: 'midi', win: 'FL Studio · MIDI Settings' },

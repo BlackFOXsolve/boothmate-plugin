@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### BoothMate 0.1.9 (Claude desktop extension)
+- **Safe loading:** every instrument and effect load is checked against a before/after snapshot; anything that lands on the wrong channel or replaces an effect is undone automatically. Channel presets' mixer routing is restored. Same-synth presets go through a Sampler swap.
+- **Starter kits v2:** drums, 808, instruments (Keys/Melody/Pad with edition-aware presets), named mixer inserts with starting levels and pans, and effects. Spare sampler channels are reused for missing drum parts. FL can't add channels from a script; kits say when a part needs one.
+- **Build around a loop:** `fl_analyze_loop` reads a loop's tempo, bars, bass note and key in pure Python; `fl_build_around_loop` takes the newest download, copies it into FL's Audio folder, loads it, and arranges an intro into a drop with the 808 on the loop's bass note, muting clashing parts. Users bring loops they're licensed to use.
+- Channel names win over numbers ("808" is the channel named 808). Editions: Sakura is Signature+, a trial counts as Producer.
+
 ### BoothMate 0.1.6 (Claude desktop extension)
 - **Loads sounds with no clicks:** `fl_load_sound` walks FL Studio's Browser to a stock sound (by path or words like "trap clap"), loads it into a named channel, renames it and can route it to a mixer track. Brings FL to the front first, because FL only lets its Browser take focus while FL is the active app. Refuses to load unless the Browser is on the exact sound, and won't replace an instrument plugin unless asked.
 - **Starter kits:** `fl_load_kit` with dark_trap, drill, boom_bap or rnb fills the Kick, Snare, Hi Hat, Open Hat, 808 and Perc channels with matched stock sounds and renames them for `make_beat`. Claude loads a kit before the first beat.

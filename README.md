@@ -19,7 +19,7 @@ Every change is undoable. Setup for Windows and Mac: [skills/boothmate/reference
 
 ## Install
 
-**Claude desktop app (Windows or Mac):** download [BoothMate.mcpb](https://github.com/BlackFOXsolve/boothmate-plugin/raw/main/downloads/BoothMate-0.1.6.mcpb) and double-click it. Claude opens it and asks you to install.
+**Claude desktop app (Windows or Mac):** download [BoothMate.mcpb](https://github.com/BlackFOXsolve/boothmate-plugin/raw/main/downloads/BoothMate-0.1.9.mcpb) and double-click it. Claude opens it and asks you to install.
 
 **Claude Code:**
 
