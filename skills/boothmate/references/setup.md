@@ -2,6 +2,9 @@
 
 Needs FL Studio 20.7 or newer (2025+ recommended) and `uv`, which installs Python automatically. Video-style walkthrough: https://github.com/BlackFOXsolve/boothmate-plugin#setup
 
+## 0. Install BoothMate
+Claude desktop app: download https://github.com/BlackFOXsolve/boothmate-plugin/raw/main/downloads/BoothMate.mcpb and double-click it. Claude Code: `/plugin marketplace add BlackFOXsolve/boothmate-plugin`, then `/plugin install boothmate@wilderfold`.
+
 ## 1. Install uv (both)
 - Windows (PowerShell): `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
 - Mac (Terminal): `curl -LsSf https://astral.sh/uv/install.sh | sh`
