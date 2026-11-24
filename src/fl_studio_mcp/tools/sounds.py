@@ -1,30 +1,30 @@
-"""Sound loading (0.1.5, lab): find FL Studio's stock sounds and load them
-without the user dragging anything.
+"""Sound loading (0.1.6): find FL Studio's stock sounds and load them into
+channels with no clicks.
 
-FL's scripting API can't create a channel or load a plugin (see loader.py), so
-loading goes through the operating system instead: BoothMate asks the OS to
-open a sound/preset file with FL Studio (like double-clicking it), then reads
-the channel rack to see what FL did, names the new channel and links it to a
-mixer track over the normal bridge.
+FL's scripting API can't create a channel or load a plugin (see loader.py).
+What it can do is drive FL's Browser the way hardware like the Akai Fire
+does. BoothMate walks the Browser to the sound, selects the target channel
+and presses Enter, which loads the sample into that channel (verified live
+on FL 2026.1.7). Opening a file through the OS does NOT work: FL treats it
+as a new project, so that route was removed.
 
-Also exposes an experimental Browser driver (the way hardware like the Akai
-Fire browses FL's sounds) so the live test can find out which route works.
+Starter kits (fl_load_kit) fill a project's drum and 808 channels with a
+matched set of stock sounds for a style, then rename them so BoothMate's
+beat tools find them.
 """
 from __future__ import annotations
 
 import glob
 import os
-import subprocess
 import sys
-import time
 from pathlib import Path
 from typing import Annotated
 
 from fastmcp import FastMCP
 from pydantic import Field
 
-from .. import fl_launcher, paths, protocol, safety
-from ..connection import get_bridge
+from .. import paths, protocol, safety
+from ..connection import fetch_all_pages, get_bridge
 
 SOUND_EXTS = {".wav", ".flac", ".mp3", ".ogg", ".aif", ".aiff", ".fst", ".ds", ".flp"}
 _MAX_SCAN = 60000
@@ -99,31 +99,227 @@ def _root_of(path: str, roots: list[Path]) -> Path:
     return Path(os.path.dirname(path))
 
 
-def open_with_fl(path: str) -> dict:
-    """Ask the OS to open a file with FL Studio (same as double-clicking it)."""
-    if not os.path.exists(path):
-        return {"ok": False, "error": "File not found: %s" % path}
-    try:
-        if sys.platform == "darwin":
-            r = subprocess.run(["open", "-b", fl_launcher.BUNDLE_ID, path],
-                               capture_output=True, text=True, timeout=20)
-            return {"ok": r.returncode == 0, "error": r.stderr.strip() or None}
-        if sys.platform == "win32":
-            exe = fl_launcher._windows_exe()
-            if not exe:
-                return {"ok": False, "error": "FL Studio isn't installed."}
-            subprocess.Popen([exe, path])
-            return {"ok": True}
-    except (OSError, subprocess.SubprocessError) as e:
-        return {"ok": False, "error": str(e)}
-    return {"ok": False, "error": "Only macOS and Windows are supported."}
+def browser_segments(path: str, roots: list[Path]) -> list[str] | None:
+    """Browser path for a stock sound: the folders under FL's Patches folder
+    match the Browser's top-level folders (Packs, Channel presets, ...). PURE."""
+    full = os.path.normpath(path)
+    for r in roots:
+        if Path(r).name != "Patches":
+            continue
+        root = os.path.normpath(str(r))
+        if full.startswith(root + os.sep):
+            return full[len(root) + 1:].split(os.sep)
+    return None
 
 
-def _channel_count() -> int | None:
+def child_names(folder: str) -> set[str]:
     try:
-        return int(get_bridge().call(protocol.CMD_GET_PROJECT_STATE, {}).get("channel_count"))
-    except Exception:
-        return None
+        return {n.lower() for n in os.listdir(folder) if not n.startswith(".")}
+    except OSError:
+        return set()
+
+
+# Channel types from FL's channels.getChannelType (CT_Sampler = 0).
+CT_SAMPLER = 0
+CT_AUDIOCLIP = 4
+
+# Roles a kit fills, in assignment order. `words` match channel names;
+# `avoid` stops e.g. "808 Kick" counting as the 808 bass.
+ROLES: dict[str, dict] = {
+    "Kick":     {"words": ["kick", "bd"], "avoid": []},
+    "Snare":    {"words": ["snare", "clap", "sd"], "avoid": []},
+    "Open Hat": {"words": ["open hat", "openhat", "oh", "open"], "avoid": []},
+    "Hi Hat":   {"words": ["hat", "hihat", "hh", "ch"], "avoid": []},
+    "808":      {"words": ["808", "bass", "sub"], "avoid": ["kick", "snare", "clap", "hat", "tom", "cowbell", "conga", "clav", "crash"]},
+    "Perc":     {"words": ["perc", "rim", "shaker", "cowbell", "tom"], "avoid": []},
+}
+
+# Starter kits: each role lists stock sounds (relative to FL's Patches folder)
+# in order of preference, plus a search to fall back on if a FL version
+# doesn't ship that file.
+KITS: dict[str, dict] = {
+    "dark_trap": {
+        "label": "Dark trap (Metro, Southside, 808 Mafia style)",
+        "tempo": 140,
+        "sounds": {
+            "Kick": (["Packs/Drums/Kicks/808 Kick.wav"], "808 kick"),
+            "Snare": (["Packs/Drums/Percussion/909 Clap.wav", "Packs/Drums/Snares/808 Snare.wav"], "clap"),
+            "Hi Hat": (["Packs/Drums/Hats/808 CH.wav"], "808 ch"),
+            "Open Hat": (["Packs/Drums/Hats/808 OH.wav"], "808 oh"),
+            "808": (["Misc/Used by demo projects/DEDZII - NIGHT TERROR/FLEX 808 Sub.ogg",
+                     "Packs/Legacy/Drums/Dance/Basic 808 Kick.wav"], "808 sub"),
+        },
+    },
+    "drill": {
+        "label": "Drill (UK / NY drill)",
+        "tempo": 142,
+        "sounds": {
+            "Kick": (["Packs/Drums/Kicks/909 Kick.wav", "Packs/Drums/Kicks/808 Kick.wav"], "909 kick"),
+            "Snare": (["Packs/Drums/Snares/RD Snare.wav", "Packs/Drums/Snares/909 Snare.wav"], "snare"),
+            "Hi Hat": (["Packs/Drums/Hats/Ice Hat 1.wav"], "ice hat"),
+            "Open Hat": (["Packs/Drums/Hats/808 OH.wav"], "808 oh"),
+            "Perc": (["Packs/Drums/Percussion/808 Cowbell.wav"], "cowbell"),
+            "808": (["Misc/Used by demo projects/DEDZII - NIGHT TERROR/FLEX 808 Sub.ogg",
+                     "Packs/Legacy/Drums/Dance/Basic 808 Kick.wav"], "808 sub"),
+        },
+    },
+    "boom_bap": {
+        "label": "Boom bap (90s New York)",
+        "tempo": 90,
+        "sounds": {
+            "Kick": (["Packs/Drums/Kicks/Grv Kick 03.wav", "Packs/Drums/Kicks/FPC 1 Kick.wav"], "grv kick"),
+            "Snare": (["Packs/Drums/Snares/Linn Snare.wav", "Packs/Drums/Snares/Scot Snare.wav"], "linn snare"),
+            "Hi Hat": (["Packs/Legacy/Drums/HipHop/HIP_Hat.wav", "Packs/Drums/Hats/Jung Hat 1.wav"], "hip hat"),
+            "Open Hat": (["Packs/Legacy/Drums/Vintage/VT_OHiHat.wav"], "ohihat"),
+            "Perc": (["Packs/Drums/Percussion/Pap Clap.wav"], "pap clap"),
+        },
+    },
+    "rnb": {
+        "label": "R&B / soul (smooth, Bryson Tiller style)",
+        "tempo": 75,
+        "sounds": {
+            "Kick": (["Packs/Drums/Kicks/Chrome Kick.wav", "Packs/Drums/Kicks/808 Kick.wav"], "kick"),
+            "Snare": (["Packs/Drums/Percussion/Pap Clap.wav", "Packs/Drums/Percussion/SC Clap.wav"], "clap"),
+            "Hi Hat": (["Packs/Drums/Hats/Ekit 1 Hat.wav", "Packs/Drums/Hats/808 CH.wav"], "hat"),
+            "Open Hat": (["Packs/Drums/Hats/808 OH.wav"], "808 oh"),
+            "808": (["Misc/Used by demo projects/DEDZII - NIGHT TERROR/FLEX 808 Sub.ogg",
+                     "Packs/Legacy/Drums/Dance/Basic 808 Kick.wav"], "808 sub"),
+        },
+    },
+}
+
+
+def resolve_kit_sound(role_spec, roots: list[Path]) -> str | None:
+    """First preferred file that exists on this computer, else best search hit."""
+    prefs, query = role_spec
+    for root in roots:
+        if Path(root).name != "Patches":
+            continue
+        for rel in prefs:
+            full = os.path.join(str(root), *rel.split("/"))
+            if os.path.isfile(full):
+                return full
+    hits = search(query, [r for r in roots if Path(r).name == "Patches"], 1,
+                  {".wav", ".ogg", ".flac", ".mp3", ".aif", ".aiff"})
+    return hits[0]["path"] if hits else None
+
+
+def assign_roles(names: list[str], roles: list[str]) -> dict[str, int]:
+    """Match kit roles to channels by name; each channel used once. PURE."""
+    used: set[int] = set()
+    out: dict[str, int] = {}
+    order = [r for r in ROLES if r in roles]
+    for role in order:
+        spec = ROLES[role]
+        best = None
+        for i, raw in enumerate(names):
+            if i in used:
+                continue
+            n = " " + raw.lower().replace("-", " ").replace("_", " ") + " "
+            if any(a in n for a in spec["avoid"]):
+                continue
+            if role == "Hi Hat" and ("open" in n or " oh " in n):
+                continue
+            if role == "Snare" and "kick" in n:
+                continue
+            hit = None
+            for rank, w in enumerate(spec["words"]):
+                if (" %s " % w) in n or (len(w) > 3 and w in n):
+                    hit = rank
+                    break
+            if hit is not None and (best is None or hit < best[0]):
+                best = (hit, i)
+        if best is not None:
+            out[role] = best[1]
+            used.add(best[1])
+    return out
+
+
+def _call(op: str, **params) -> dict:
+    return get_bridge().call(protocol.CMD_BROWSER, {"op": op, **params})
+
+
+def load_into_channel(path: str, channel: int, roots: list[Path]) -> dict:
+    """Walk FL's Browser to `path` and load it into `channel` (-1 = try a new
+    channel). Opens only the folders it needs and closes them afterwards."""
+    segs = browser_segments(path, roots)
+    if not segs:
+        return {"ok": False, "error": "BoothMate can only load sounds from FL Studio's own "
+                                      "library (the Browser's Packs and preset folders)."}
+    trail: list[dict] = []
+    opened: list[str] = []
+    home = _call("home")
+    if not home.get("focused", True):
+        return {"ok": False, "error": "FL Studio's Browser didn't respond. Open FL Studio and try again."}
+    root = os.path.dirname(path)
+    for _ in range(len(segs) - 1):
+        root = os.path.dirname(root)
+    current = root
+    for folder in segs[:-1]:
+        current = os.path.join(current, folder)
+        r = _call("find", name=folder)
+        trail.append({"find": folder, "found": r.get("found"), "steps": r.get("steps")})
+        if not r.get("found"):
+            _collapse(opened)
+            return {"ok": False, "error": "Couldn't find the folder '%s' in FL's Browser." % folder,
+                    "trail": trail}
+        kids = child_names(current)
+        _call("toggle", value=-1)
+        cap = (_call("next_menu").get("caption") or "").lower()
+        if cap in kids:
+            opened.append(folder)
+        else:
+            # It was already open and the toggle closed it: open it again.
+            _call("prev_menu")
+            _call("toggle", value=-1)
+            cap = (_call("next_menu").get("caption") or "").lower()
+            if cap not in kids:
+                _collapse(opened)
+                return {"ok": False, "error": "Couldn't open the folder '%s' in FL's Browser." % folder,
+                        "trail": trail}
+    name = segs[-1]
+    r = _call("find", name=name)
+    trail.append({"find": name, "found": r.get("found"), "steps": r.get("steps")})
+    if not r.get("found"):
+        _collapse(opened)
+        return {"ok": False, "error": "Couldn't find '%s' in FL's Browser." % name, "trail": trail}
+    res = _call("load", channel=channel, expect=name)
+    _collapse(opened)
+    out = {"ok": bool(res.get("loaded")) and not res.get("error"), "sound": name,
+           "channels_before": res.get("channels_before"),
+           "channels_after": res.get("channels_after"), "channel": res.get("channel")}
+    if res.get("error"):
+        out["error"] = res["error"]
+    return out
+
+
+def _collapse(opened: list[str]) -> None:
+    """Close the folders BoothMate opened, deepest first."""
+    for folder in reversed(opened):
+        try:
+            r = _call("find", name=folder, direction=-1)
+            if r.get("found"):
+                _call("toggle", value=-1)
+        except Exception:
+            pass
+
+
+def _channels() -> list[dict]:
+    """Channel names and types (type from the Browser driver, paged)."""
+    data = fetch_all_pages(get_bridge(), protocol.CMD_CHANNEL_LIST, "channels")
+    names = [c.get("name", "") for c in (data.get("channels") or [])]
+    types: list[int] = []
+    start = 0
+    while True:
+        t = _call("channel_types", start=start)
+        types += list(t.get("types") or [])
+        start += 60
+        if start >= int(t.get("total") or 0):
+            break
+    if not names:
+        names = [""] * len(types)
+    return [{"i": i, "name": names[i] if i < len(names) else "",
+             "type": types[i] if i < len(types) else None} for i in range(max(len(names), len(types)))]
 
 
 def _write(command, params):
@@ -152,40 +348,123 @@ def register(mcp: FastMCP) -> None:
         res = search(query, roots, limit, {".fst"} if presets_only else None)
         return {"ok": True, "query": query, "roots": [str(r) for r in roots], "results": res}
 
-    @mcp.tool(annotations={"title": "Load a sound into FL Studio (lab)", **_WR})
+    @mcp.tool(annotations={"title": "Load a sound into a channel", **_WR})
     def fl_load_sound(
-        path: Annotated[str, Field(description="Full path from fl_find_sounds.")],
-        channel_name: Annotated[str | None, Field(description="Name for the new channel, e.g. 'Kick', '808', 'Bell'.")] = None,
-        mixer_track: Annotated[int | None, Field(ge=1, description="Mixer insert to link the new channel to.")] = None,
-        wait_seconds: Annotated[float, Field(ge=1, le=15)] = 6.0,
+        sound: Annotated[str, Field(description="A path from fl_find_sounds, or search words like 'trap clap' or '808 open hat'.")],
+        channel: Annotated[str | None, Field(description="Channel to load into: its number (0 = first) or a name like 'Kick', 'Snare', '808'. Leave empty to try adding a new channel.")] = None,
+        name: Annotated[str | None, Field(description="Rename the channel after loading, e.g. 'Kick'.")] = None,
+        mixer_track: Annotated[int | None, Field(ge=1, description="Mixer insert to route the channel to.")] = None,
+        replace_instrument: Annotated[bool, Field(description="Allow loading a sample over a channel that holds an instrument plugin (it becomes a sampler). Off by default.")] = False,
     ) -> dict:
-        """Load a sample or preset into FL Studio with no clicks: opens the
-        file with FL (like double-clicking it), detects the new channel, then
-        names it and links it to a mixer track. Reports exactly what FL did."""
-        before = _channel_count()
-        opened = open_with_fl(path)
-        if not opened.get("ok"):
-            return {"ok": False, "step": "open", **opened}
-        after, waited = before, 0.0
-        while waited < wait_seconds:
-            time.sleep(0.5)
-            waited += 0.5
-            after = _channel_count()
-            if before is not None and after is not None and after > before:
-                break
-        out = {"opened": path, "channels_before": before, "channels_after": after}
-        if before is None or after is None or after <= before:
-            out.update(ok=False, result="no_new_channel",
-                       hint="FL didn't add a channel. It may have opened the file somewhere else "
-                            "(Edison, a new project or a dialog). Look at FL Studio's screen.")
+        """Load one of FL Studio's stock sounds into a Channel Rack channel
+        with no clicks. BoothMate walks FL's Browser to the sound, selects
+        the channel and loads it (the way an Akai Fire does), then can rename
+        it and route it to a mixer track. Samples only go onto sampler
+        channels unless replace_instrument is on."""
+        roots = stock_roots()
+        if not roots:
+            return {"ok": False, "error": "Couldn't find FL Studio's sound folders on this computer."}
+        path = sound if os.path.isfile(sound) else None
+        if path is None:
+            hits = search(sound, [r for r in roots if r.name == "Patches"], 1)
+            if not hits:
+                return {"ok": False, "error": "No FL Studio stock sound matches '%s'." % sound}
+            path = hits[0]["path"]
+        target = -1
+        chans = None
+        if channel not in (None, ""):
+            chans = _channels()
+            if str(channel).strip().isdigit():
+                target = int(str(channel).strip())
+            else:
+                want = str(channel).strip().lower()
+                exact = [c["i"] for c in chans if c["name"].lower() == want]
+                part = [c["i"] for c in chans if want in c["name"].lower()]
+                pick = exact or part
+                if not pick:
+                    return {"ok": False, "error": "No channel named '%s'." % channel,
+                            "channels": [c["name"] for c in chans]}
+                target = pick[0]
+            if target >= len(chans):
+                return {"ok": False, "error": "There is no channel %d." % target}
+            ctype = chans[target]["type"]
+            if ctype not in (CT_SAMPLER, CT_AUDIOCLIP, None) and not replace_instrument:
+                return {"ok": False, "error": "Channel '%s' holds an instrument plugin, not a sampler. "
+                                              "Pick a sampler channel, or set replace_instrument "
+                                              "to swap the instrument for this sample." % chans[target]["name"]}
+        preview = safety.preview_write(tool="fl_load_sound", command=protocol.CMD_BROWSER,
+                                       params={"op": "load", "channel": target, "sound": path})
+        if preview is not None:
+            return preview
+        out = load_into_channel(path, target, roots)
+        out["path"] = path
+        if not out.get("ok"):
             return out
-        ch = after - 1
-        out.update(ok=True, result="new_channel", channel=ch)
-        if channel_name:
-            out["rename"] = _write(protocol.CMD_CHANNEL_SET_NAME, {"channel": ch, "name": channel_name})
+        ch = target
+        if ch < 0:
+            if (out.get("channels_after") or 0) > (out.get("channels_before") or 0):
+                ch = int(out["channels_after"]) - 1
+                out["result"] = "new_channel"
+            else:
+                out["ok"] = False
+                out["result"] = "no_new_channel"
+                out["hint"] = "FL didn't add a channel. Name a channel to load into instead."
+                return out
+        if name:
+            out["rename"] = _write(protocol.CMD_CHANNEL_SET_NAME, {"channel": ch, "name": name})
         if mixer_track:
             out["link"] = _write(protocol.CMD_CHANNEL_LINK_MIXER, {"channel": ch, "track": mixer_track})
         return out
+
+    @mcp.tool(annotations={"title": "Load a starter kit", **_WR})
+    def fl_load_kit(
+        style: Annotated[str, Field(description="Kit style: dark_trap, drill, boom_bap or rnb. Call with 'list' to see them.")],
+        rename: Annotated[bool, Field(description="Rename filled channels to their role (Kick, Snare, Hi Hat, Open Hat, 808, Perc) so make_beat finds them.")] = True,
+    ) -> dict:
+        """Fill the project's drum and 808 channels with a matched set of FL
+        Studio stock sounds for a style, with no clicks. Matches kit roles
+        to channels by name (Kick, Snare/Clap, Hat, Open Hat, 808, Perc),
+        loads each sound into its channel and renames it. Only sampler
+        channels are filled; instrument channels are left alone and reported.
+        Use before make_beat so the beat plays with sounds that fit."""
+        key = style.strip().lower().replace(" ", "_").replace("&", "n").replace("-", "_")
+        if key in ("list", "") or key not in KITS:
+            return {"ok": key == "list", "kits": {k: v["label"] for k, v in KITS.items()},
+                    **({} if key == "list" else {"error": "Unknown kit '%s'." % style})}
+        kit = KITS[key]
+        roots = stock_roots()
+        if not roots:
+            return {"ok": False, "error": "Couldn't find FL Studio's sound folders on this computer."}
+        chans = _channels()
+        plan = assign_roles([c["name"] for c in chans], list(kit["sounds"]))
+        preview = safety.preview_write(tool="fl_load_kit", command=protocol.CMD_BROWSER,
+                                       params={"op": "load_kit", "style": key, "plan": plan})
+        if preview is not None:
+            return preview
+        filled, skipped = [], []
+        for role in kit["sounds"]:
+            if role not in plan:
+                skipped.append({"role": role, "why": "no channel for it (add or name a channel '%s')" % role})
+                continue
+            ch = plan[role]
+            if chans[ch]["type"] not in (CT_SAMPLER, CT_AUDIOCLIP, None):
+                skipped.append({"role": role, "channel": ch, "name": chans[ch]["name"],
+                                "why": "instrument plugin, left as is"})
+                continue
+            path = resolve_kit_sound(kit["sounds"][role], roots)
+            if not path:
+                skipped.append({"role": role, "why": "sound not found in this FL version"})
+                continue
+            r = load_into_channel(path, ch, roots)
+            if not r.get("ok"):
+                skipped.append({"role": role, "channel": ch, "why": r.get("error", "load failed")})
+                continue
+            if rename:
+                _write(protocol.CMD_CHANNEL_SET_NAME, {"channel": ch, "name": role})
+            filled.append({"role": role, "channel": ch, "was": chans[ch]["name"],
+                           "sound": os.path.basename(path)})
+        return {"ok": bool(filled), "kit": kit["label"], "suggested_tempo": kit["tempo"],
+                "filled": filled, "skipped": skipped}
 
     @mcp.tool(annotations={"title": "Rename a channel", **_WR})
     def fl_rename_channel(
@@ -203,15 +482,18 @@ def register(mcp: FastMCP) -> None:
         """Route a channel to a mixer insert (same as Ctrl+L in FL)."""
         return _write(protocol.CMD_CHANNEL_LINK_MIXER, {"channel": channel, "track": track})
 
-    @mcp.tool(annotations={"title": "Drive FL's Browser (lab)", **_WR})
+    @mcp.tool(annotations={"title": "Drive FL's Browser (advanced)", **_WR})
     def fl_browser(
-        op: Annotated[str, Field(description="state, show, next, prev, next_menu, prev_menu, tab_right, tab_left, tab_first, toggle, preview, select, enter")] = "state",
+        op: Annotated[str, Field(description="state, show, next, prev, next_menu, prev_menu, tab_right, tab_left, tab_first, toggle, preview, home, find, reset")] = "state",
         shift: bool = False,
+        name: Annotated[str | None, Field(description="For op=find: the item caption to move to.")] = None,
     ) -> dict:
-        """Experimental: move through FL Studio's Browser and try loading the
-        highlighted item. Returns the highlighted item and the channel count,
-        so a load attempt shows up as a new or changed channel."""
-        return get_bridge().call(protocol.CMD_BROWSER, {"op": op, "shift": shift})
+        """Low-level: step through FL Studio's Browser. Prefer fl_load_sound
+        and fl_load_kit, which do the whole walk and load safely."""
+        params: dict = {"op": op, "shift": shift}
+        if name:
+            params["name"] = name
+        return get_bridge().call(protocol.CMD_BROWSER, params)
 
     @mcp.tool(annotations={"title": "List an FL API module (lab)", **_RO})
     def fl_api_names(
