@@ -67,3 +67,23 @@ NOT verified: still no live Gemini call (the sandbox can't reach Google or netli
 How Alan tests: same as above. Open the preview /test.html, paste a link, wait 1-4 minutes, load the sounds, copy the prompts and run them in FL Studio, then A/B against the video. If the result says "Tempo corrected", try both tempos against the video.
 
 Next: compare a real run of u1Gte5Jt-P4 with the 133 reading. If key or tempo still wanders between runs, add a cheap second Gemini pass that only asks for tempo and key.
+
+### 2026-11-24 third run (final check before Alan wakes), PR #1
+**Preview to test:** https://deploy-preview-1--boothmate-d4e6.netlify.app/test.html. Netlify reported "Deploy Preview ready!" for commit 745291e at 13:14 UTC. This log-only commit will show as "Deploy Preview canceled" on GitHub because site/ didn't change. That's expected: the preview keeps serving 745291e.
+
+Verified first
+- Items 1-5 were all done by the earlier runs. `cd site && npm test` passed 20/20 before any changes. Python passed 378, with 2 failures in `test_offline.py` because `rtmidi` can't be installed in this sandbox. GitHub CI is green on Windows and Linux. 3 macOS jobs on 11:47's run were *cancelled* after 15 minutes, not failed (a runner queue/timeout, not code).
+- PR #1 is open. Netlify project settings show no password or SSO on previews, so the page and its background worker are reachable. I can't see env-var scopes, so I couldn't confirm that GEMINI_API_KEY applies to Deploy Previews. test.html warns if it doesn't.
+
+Done
+1. **Steadier readings.** Gemini temperature is now 0.2 (was 0.4) for the free preview, the paid breakdown and test runs, so the same video should give the same style, tempo and key run to run. To change it, set the `GEMINI_TEMPERATURE` env var. No code change is needed.
+2. **Honest error messages.** A Gemini outage ("Gemini 503: Service Unavailable") used to show "Gemini couldn't open this video" because the text contains "unavailable". It now says "Our analyser is busy right now". Lost connections say so too.
+3. PR body updated with both changes.
+
+Tests: site 21/21 (1 new: temperature default/override and error wording). Python unchanged (378 passed).
+
+NOT verified: still no live Gemini call (the sandbox can't reach Google or netlify.app).
+
+How Alan tests: open the preview /test.html and paste a beat link. Wait 1-4 minutes. Load the sounds in step 1, then Copy all prompts and run them in FL Studio, and A/B against the video. For the accuracy check, run u1Gte5Jt-P4 twice: style, tempo and key should match both times (expected: around Chicago drill, ~133 BPM).
+
+Next: if a run fails, the "Technical detail" box says why. `Gemini 4xx` on the schema means trim the schema; "no GEMINI_API_KEY" means switch the key on for Deploy Previews in Netlify (Alan's call).
