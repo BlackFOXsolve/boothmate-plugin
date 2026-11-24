@@ -8,55 +8,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<style>
-:root{--acc:#C6F432;--acc-a:rgba(198,244,50,.45);--bg:#0E0E11;--card:#17171C;--line:#2A2A33;--muted:#B4B4BE;--dim:#8E8E99;--text:#ECECEF}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:17px/1.6 Inter,system-ui,sans-serif;overflow-x:hidden}
-a{color:var(--acc)}
-h1,h2,h3{font-family:'Space Grotesk',sans-serif;line-height:1.15;margin:0}
-.wrap{max-width:1040px;margin:0 auto;padding:24px 24px 96px;position:relative}
-header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding-bottom:32px}
-.logo{display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font:700 22px 'Space Grotesk',sans-serif}
-.blob{position:fixed;border-radius:50%;filter:blur(80px);opacity:.25;pointer-events:none;z-index:-1}
-.glass{position:relative;background:linear-gradient(140deg,rgba(255,255,255,.12),rgba(255,255,255,.03) 45%,rgba(255,255,255,.06));-webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);border:1px solid rgba(255,255,255,.14);border-radius:22px}
-.card{padding:24px;display:flex;flex-direction:column;gap:12px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
-.stat{background:var(--bg);border:1px solid #3A3A44;border-radius:14px;padding:14px 16px}
-.stat small{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
-.stat b{font:600 22px 'Space Grotesk',sans-serif}
-.conf{font-size:12px;color:var(--dim);margin-left:6px}
-.label{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc)}
-.muted{color:var(--muted)}
-dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:8px 16px}
-dt{color:var(--dim);font-size:14px;padding-top:2px}dd{margin:0}
-ol.prompts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;counter-reset:p}
-ol.prompts li{counter-increment:p;display:flex;gap:14px;align-items:flex-start;background:var(--bg);border:1px solid #3A3A44;border-radius:14px;padding:14px 16px;transition:border-color .25s,transform .25s}
-ol.prompts li:hover{border-color:var(--acc);transform:translateX(6px)}
-ol.prompts li::before{content:counter(p);flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--acc);color:var(--bg);font:700 14px 'Space Grotesk',sans-serif}
-ol.prompts p{margin:0;flex:1;font-family:'Space Grotesk',sans-serif;font-size:17px}
-button{font:inherit;cursor:pointer}
-.btn{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:var(--text);font-weight:600;font-size:14px;transition:transform .2s,border-color .2s,background .2s}
-.btn:hover{transform:translateY(-2px);border-color:var(--acc)}
-.btn.on{background:var(--acc);color:var(--bg);border-color:var(--acc)}
-.btn-p{background:var(--acc);color:var(--bg);border:0;min-height:52px;padding:0 24px;font-size:17px}
-.timeline{display:flex;gap:6px;flex-wrap:wrap}
-.seg{flex:1 1 120px;min-width:110px;background:var(--bg);border:1px solid #3A3A44;border-radius:12px;padding:12px 14px}
-.seg b{font-family:'Space Grotesk',sans-serif}
-.seg .bars{font-size:12px;color:var(--dim)}
-.wait{display:flex;flex-direction:column;align-items:center;text-align:center;gap:18px;padding:56px 24px}
-.eq{display:flex;gap:6px;align-items:flex-end;height:48px}
-.eq i{width:8px;height:100%;background:var(--acc);border-radius:2px;transform-origin:bottom;animation:eq 1s ease-in-out infinite}
-.eq i:nth-child(2){animation-delay:-.3s}.eq i:nth-child(3){animation-delay:-.6s}.eq i:nth-child(4){animation-delay:-.15s}.eq i:nth-child(5){animation-delay:-.75s}
-@keyframes eq{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
-@keyframes up{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
-.in{animation:up .7s cubic-bezier(.2,.75,.2,1) both}
-.video{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
-.video img{width:160px;aspect-ratio:16/9;object-fit:cover;border-radius:12px;border:1px solid var(--line)}
-.err{border-color:#FF4F5E}
-footer{margin-top:40px;font-size:13px;color:var(--dim)}
-@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
-</style>
+<link rel="stylesheet" href="/breakdown.css">
 </head>
 <body>
 <div class="blob" style="width:520px;height:520px;left:-10%;top:-8%;background:#5CC8FF"></div>
@@ -69,6 +21,7 @@ footer{margin-top:40px;font-size:13px;color:var(--dim)}
 <main id="main" aria-live="polite"></main>
 <footer>Beat Breakdown describes a beat's style so you can make your own. It never gives you the original melody, samples or drum pattern; don't release a near-copy of someone else's work. Results are estimates. If a breakdown can't be completed, you're refunded automatically. <a href="/refund.html" id="refundLink">Refund policy</a>. Not affiliated with YouTube or the producers whose beats are analysed.</footer>
 </div>
+<script src="/breakdown-view.js"></script>
 <script>
 (function () {
   "use strict";
@@ -78,11 +31,8 @@ footer{margin-top:40px;font-size:13px;color:var(--dim)}
   var sample = q.get("sample") === "1";
   var polls = 0, started = false;
 
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  function videoBlock(v) {
-    if (!v || !v.id) return "";
-    return '<div class="video in"><img src="https://img.youtube.com/vi/' + esc(v.id) + '/hqdefault.jpg" alt=""><div><div class="label">' + (sample ? "Sample breakdown" : "Your breakdown") + '</div><h1 style="font-size:clamp(24px,3.4vw,34px)">' + esc(v.title || "Your beat") + '</h1><a href="' + esc(v.url) + '" target="_blank" rel="noopener" style="font-size:14px">Open on YouTube &#8599;</a></div></div>';
-  }
+  var esc = BBView.esc;
+  function videoBlock(v) { return BBView.videoBlock(v, sample ? "Sample breakdown" : "Your breakdown"); }
   function show(html) { main.innerHTML = html; }
   function refundUrl(v) { return "/refund.html?session_id=" + encodeURIComponent(sid || "") + (v && v.url ? "&video=" + encodeURIComponent(v.url) : "") + "#request"; }
 
@@ -101,33 +51,7 @@ footer{margin-top:40px;font-size:13px;color:var(--dim)}
     if (b) b.onclick = function () { start(); };
   }
 
-  function result(v, r) {
-    var conf = function (c) { return c ? '<span class="conf">' + esc(c) + " confidence</span>" : ""; };
-    var d = r.drums || {}, m = r.melody || {};
-    var prompts = (r.boothmate_prompts || []);
-    var html = videoBlock(v) +
-      '<section class="in" style="margin-top:28px;display:flex;flex-direction:column;gap:18px">' +
-      '<div class="glass card"><div class="label">The vibe</div><h2 style="font-size:clamp(26px,3.6vw,38px)">' + esc(r.style) + '</h2><p class="muted" style="margin:0;font-size:19px">' + esc(r.vibe) + '</p>' +
-      '<div class="stats"><div class="stat"><small>Tempo</small><b>' + esc(r.bpm) + ' BPM</b>' + conf(r.bpm_confidence) + '</div><div class="stat"><small>Key</small><b>' + esc(r.key) + '</b>' + conf(r.key_confidence) + '</div></div></div>' +
-      '<div class="glass card" style="border-color:var(--acc)"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><div><div class="label">Build your own</div><h2>Your BoothMate prompts</h2></div><button class="btn" id="copyAll">Copy all prompts</button></div><p class="muted" style="margin:0">Paste these into Claude one at a time, in order, with BoothMate installed and FL Studio open. Add the sounds below to your Channel rack first.</p><ol class="prompts">' +
-      prompts.map(function (p, i) { return '<li><p>' + esc(p) + '</p><button class="btn" data-copy="' + i + '">Copy</button></li>'; }).join("") + '</ol></div>' +
-      '<div class="grid"><div class="glass card"><h3>Drums</h3><dl><dt>Kick</dt><dd>' + esc(d.kick) + '</dd><dt>Snare / clap</dt><dd>' + esc(d.snare_clap) + '</dd><dt>Hi-hats</dt><dd>' + esc(d.hi_hats) + '</dd><dt>Percussion</dt><dd>' + esc(d.percussion) + '</dd><dt>Groove</dt><dd>' + esc(d.groove) + '</dd></dl></div>' +
-      '<div class="glass card"><h3>808</h3><p style="margin:0">' + esc(r.bass_808) + '</p><h3 style="margin-top:8px">Melody</h3><dl><dt>Lead</dt><dd>' + esc(m.lead_sound) + '</dd><dt>Approach</dt><dd>' + esc(m.approach) + '</dd><dt>Harmony</dt><dd>' + esc(m.harmony) + '</dd><dt>Layers</dt><dd>' + esc(m.layers) + '</dd></dl></div></div>' +
-      '<div class="glass card"><h3>Arrangement</h3><div class="timeline">' + (r.arrangement || []).map(function (s) { return '<div class="seg"><b>' + esc(s.section) + '</b><div class="bars">' + (s.bars ? esc(s.bars) + " bars" : "") + '</div><div style="font-size:14px" class="muted">' + esc(s.what_happens) + '</div></div>'; }).join("") + '</div></div>' +
-      '<div class="grid"><div class="glass card"><h3>Sounds to use in FL Studio</h3><dl>' + (r.fl_studio_sounds || []).map(function (s) { return "<dt>" + esc(s.role) + "</dt><dd>" + esc(s.suggestion) + "</dd>"; }).join("") + '</dl></div>' +
-      '<div class="glass card"><h3>Mix notes</h3><ul style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px">' + (r.mix_notes || []).map(function (n) { return "<li>" + esc(n) + "</li>"; }).join("") + "</ul></div></div>" +
-      (r.notes ? '<p class="muted" style="margin:0;font-size:15px">' + esc(r.notes) + "</p>" : "") +
-      '<div class="glass card"><h3>Don\'t have BoothMate yet?</h3><p class="muted" style="margin:0">It\'s free. Install it once and these prompts build the beat in your FL Studio.</p><div><a class="btn btn-p" style="display:inline-flex;align-items:center;text-decoration:none" href="/#setup">Get BoothMate free</a></div></div>' +
-      "</section>";
-    show(html);
-    function copy(text, btn) {
-      var done = function () { btn.textContent = "Copied ✓"; btn.classList.add("on"); setTimeout(function () { btn.textContent = btn.id === "copyAll" ? "Copy all prompts" : "Copy"; btn.classList.remove("on"); }, 1800); };
-      try { navigator.clipboard.writeText(text).then(done, function () { fallback(text); done(); }); } catch (e) { fallback(text); done(); }
-    }
-    function fallback(text) { var t = document.createElement("textarea"); t.value = text; t.style.position = "fixed"; t.style.opacity = "0"; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); } finally { document.body.removeChild(t); } }
-    main.querySelectorAll("[data-copy]").forEach(function (b) { b.onclick = function () { copy(prompts[Number(b.getAttribute("data-copy"))], b); }; });
-    document.getElementById("copyAll").onclick = function () { copy(prompts.map(function (p, i) { return (i + 1) + ". " + p; }).join("\n"), this); };
-  }
+  function result(v, r) { BBView.renderResult(main, v, r); }
 
   function handle(j) {
     if (j.status === "done" && j.result) return result(j.video, j.result);

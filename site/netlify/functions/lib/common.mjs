@@ -1,5 +1,6 @@
 // Shared helpers for the Beat Breakdown functions.
 import { getStore } from "@netlify/blobs";
+import { timingSafeEqual } from "node:crypto";
 
 // The landing page is also previewed inside Claude, so the two public endpoints
 // (free preview and checkout) answer cross-origin requests. No cookies are used.
@@ -71,6 +72,7 @@ export async function paidSession(sessionId) {
 }
 
 export const store = () => globalThis.__BB_STORE || getStore({ name: "beat-breakdowns", consistency: "strong" });
+export const testStore = () => globalThis.__BB_TEST_STORE || getStore({ name: "beat-breakdown-tests", consistency: "strong" });
 export const previewStore = () => globalThis.__BB_PREVIEW_STORE || getStore({ name: "beat-previews", consistency: "strong" });
 
 export function siteUrl(req) {
@@ -91,3 +93,14 @@ export async function refundSession(paid, reason) {
 // Beat Breakdown stays closed until BEAT_BREAKDOWN_OPEN=true is set in Netlify.
 export const bbClosed = () =>
   process.env.BEAT_BREAKDOWN_OPEN === "true" ? null : json(503, { status: "closed", error: "Beat Breakdown opens soon." });
+
+// Owner test mode: a full breakdown with no payment. Only on Netlify Deploy
+// Previews / branch deploys, or anywhere when BB_TEST_KEY is set and matches.
+// Netlify Functions v2 pass the deploy context in context.deploy.context.
+export function testModeAllowed(key, context) {
+  const ctx = context?.deploy?.context || process.env.CONTEXT;
+  if (ctx === "deploy-preview" || ctx === "branch-deploy") return true;
+  const want = process.env.BB_TEST_KEY;
+  if (!want || typeof key !== "string" || key.length !== want.length) return false;
+  return timingSafeEqual(Buffer.from(key), Buffer.from(want));
+}
