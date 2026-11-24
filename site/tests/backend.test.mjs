@@ -217,7 +217,13 @@ test("test mode is a 404 on production without the key, even when Beat Breakdown
 test("test mode on a deploy preview runs the full paid breakdown with no payment", async () => {
   gemini = geminiFull;
   let r = await testBd(new Request("https://deploy-preview-7--boothmate.netlify.app/api/test-breakdown"), PREVIEW_CTX);
-  assert.deepEqual(await r.json(), { status: "ready", used: 0, limit: 25, geminiReady: true, context: "deploy-preview" });
+  const ready = await r.json();
+  assert.equal(ready.status, "ready");
+  assert.equal(ready.used, 0);
+  assert.equal(ready.limit, 25);
+  assert.equal(ready.geminiReady, true);
+  assert.equal(ready.context, "deploy-preview");
+  assert.ok(!JSON.stringify(ready).includes(process.env.GEMINI_API_KEY), "never leaks the key itself");
   r = await testBd(new Request("https://deploy-preview-7--boothmate.netlify.app/api/test-breakdown", { method: "POST", body: JSON.stringify({ url: "https://youtu.be/u1Gte5Jt-P4" }) }), PREVIEW_CTX);
   assert.equal(r.status, 202);
   const { id, video } = await r.json();
