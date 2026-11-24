@@ -325,3 +325,62 @@ test("tidyBreakdown: adds a tempo prompt when missing and leaves good results al
   assert.equal(t.sound_setup, undefined);
   assert.equal(tidyBreakdown(null), null);
 });
+
+const { reconcileTempo, PREVIEW_PROMPT } = await import("../netlify/functions/lib/prompt.mjs");
+const { isTransient } = await import("../netlify/functions/lib/gemini.mjs");
+
+test("tempo: a half/double-time slip is fixed against the genre, and every prompt uses one BPM", () => {
+  assert.deepEqual(reconcileTempo(133, "drill"), { bpm: 133, changed: false });
+  assert.equal(reconcileTempo(66.5 * 2, "drill").changed, false);
+  assert.equal(reconcileTempo(67, "drill").bpm, 134, "half-time drill reading doubled");
+  assert.equal(reconcileTempo(280, "trap").bpm, 140, "double-time trap reading halved");
+  assert.equal(reconcileTempo(180, "boom_bap").bpm, 90);
+  assert.equal(reconcileTempo(200, "unknown").changed, false, "no genre, no guess");
+  const t = tidyBreakdown({ bpm: 67, bpm_confidence: "high", boothmate_genre: "drill", notes: "Instrumental.",
+    boothmate_prompts: ["Set the tempo to 67 BPM.", "Program drill drums for 8 bars at 67 BPM.", "Write a dark 808 in D minor."] });
+  assert.equal(t.bpm, 134);
+  assert.equal(t.bpm_confidence, "medium");
+  assert.deepEqual(t.boothmate_prompts.slice(0, 2), ["Set the tempo to 134 BPM.", "Program drill drums for 8 bars at 134 BPM."]);
+  assert.match(t.notes, /^Instrumental\. Tempo corrected from 67 to 134 BPM/);
+  const ok = tidyBreakdown({ bpm: 142, boothmate_genre: "drill", notes: "x", boothmate_prompts: ["Set the tempo to 142 BPM."] });
+  assert.equal(ok.notes, "x", "in-range tempo is left alone");
+});
+
+test("tidyBreakdown keeps doable prompts that merely mention an effect", () => {
+  const t = tidyBreakdown({ bpm: 140, boothmate_prompts: ["Set the tempo to 140 BPM.", "Write dark chords in C minor on the Pad channel, 2 bars each; they'll sit under reverb later.", "Add Fruity Reeverb 2 to the Pad track."] });
+  assert.equal(t.boothmate_prompts.length, 2);
+  assert.match(t.boothmate_prompts[1], /Write dark chords/);
+  assert.deepEqual(t.sound_setup.manual_steps, ["Add Fruity Reeverb 2 to the Pad track."]);
+});
+
+test("test mode retries once when Gemini's answer is cut off or Gemini is busy, never for blocks", async () => {
+  process.env.BB_RETRY_WAIT_MS = "0";
+  try {
+    let n = 0;
+    gemini = () => (++n === 1 ? { ok: true, body: { candidates: [{ finishReason: "MAX_TOKENS", content: { parts: [{ text: '{"sty' }] } }] } } : geminiFull());
+    let r = await testBd(post("/api/test-breakdown", { url: "https://youtu.be/u1Gte5Jt-P4" }), PREVIEW_CTX);
+    let { id } = await r.json();
+    await runTestBg(post("/x", { id }));
+    let j = await (await testBd(new Request(`https://x/api/test-breakdown?id=${id}`), PREVIEW_CTX)).json();
+    assert.equal(j.status, "done");
+    assert.equal(n, 2);
+    n = 0;
+    gemini = () => { n++; return { ok: true, body: { promptFeedback: { blockReason: "SAFETY" } } }; };
+    r = await testBd(post("/api/test-breakdown", { url: "https://youtu.be/u1Gte5Jt-P4" }), PREVIEW_CTX);
+    ({ id } = await r.json());
+    await runTestBg(post("/x", { id }));
+    j = await (await testBd(new Request(`https://x/api/test-breakdown?id=${id}`), PREVIEW_CTX)).json();
+    assert.equal(j.status, "error");
+    assert.equal(n, 1, "a blocked video isn't retried");
+    assert.match(j.error, /declined/);
+  } finally { delete process.env.BB_RETRY_WAIT_MS; }
+  assert.ok(isTransient(new Error("Gemini 503: The model is overloaded.")));
+  assert.ok(isTransient(new Error("Gemini 429: Resource has been exhausted (check quota).")));
+  assert.ok(!isTransient(new Error("Gemini 400: Video is private.")));
+  assert.ok(!isTransient(new Error("GEMINI_API_KEY is not set")));
+});
+
+test("free preview uses the same tempo rules as the full breakdown", () => {
+  assert.match(PREVIEW_PROMPT, /Half\/double-time check/);
+  assert.match(PREVIEW_PROMPT, /Chicago drill: about 130-150/);
+});

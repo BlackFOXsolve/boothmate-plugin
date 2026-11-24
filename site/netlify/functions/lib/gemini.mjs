@@ -23,7 +23,7 @@ export async function geminiVideo({ url, prompt, schema, seconds }) {
   const raw = await r.text();
   let j = null;
   try { j = JSON.parse(raw); } catch {}
-  if (!r.ok) throw new Error(j?.error?.message || `Gemini ${r.status}: ${raw.slice(0, 200)}`);
+  if (!r.ok) throw new Error(`Gemini ${r.status}: ${j?.error?.message || raw.slice(0, 200)}`);
   if (!j) throw new Error(`Gemini returned something that isn't JSON: ${raw.slice(0, 200)}`);
   if (j.promptFeedback?.blockReason) throw new Error(`Gemini blocked the request: ${j.promptFeedback.blockReason}`);
   const cand = j.candidates?.[0];
@@ -31,6 +31,28 @@ export async function geminiVideo({ url, prompt, schema, seconds }) {
   if (!text) throw new Error(`Gemini returned no answer (finishReason ${cand?.finishReason || "none"})`);
   try { return JSON.parse(text); }
   catch { throw new Error(`Gemini's answer was cut off or malformed (finishReason ${cand?.finishReason || "unknown"})`); }
+}
+
+// One automatic retry for hiccups that usually clear on a second try (answer cut
+// off or malformed, Gemini busy or briefly down). Not for bad links, blocks or
+// missing keys: those fail the same way twice. Used by owner test mode.
+const TRANSIENT = /cut off|malformed|no answer|isn't JSON|Gemini 5\d\d|Gemini 429|quota|rate.?limit|overloaded|deadline|fetch failed|ECONNRESET|socket/i;
+export function isTransient(e) {
+  const m = String(e?.message || e);
+  return TRANSIENT.test(m) && !/GEMINI_API_KEY|blocked|private|not found|permission/i.test(m);
+}
+export async function geminiVideoWithRetry(args, { tries = 2, waitMs = 5000 } = {}) {
+  let last;
+  for (let i = 0; i < tries; i++) {
+    try { return await geminiVideo(args); }
+    catch (e) {
+      last = e;
+      if (i === tries - 1 || !isTransient(e)) break;
+      console.warn("Gemini attempt failed, retrying once:", String(e?.message || e).slice(0, 200));
+      if (waitMs) await new Promise((r) => setTimeout(r, waitMs));
+    }
+  }
+  throw last;
 }
 
 export function friendly(e) {

@@ -166,20 +166,44 @@ export const BREAKDOWN_SCHEMA = {
 };
 
 // Things BoothMate can't do; a prompt asking for them is moved out of the list.
-const CANT = /\b(load|drag|add (?:a |an )?(?:plugin|preset|sample|effect)|insert .*(?:plugin|effect)|export|render|bounce|soft clipper|overdrive|distortion|reverb|delay|sidechain)\b/i;
+const CANT = /\b(load|drag|add (?:a |an )?(?:plugin|preset|sample|effect)|insert .*(?:plugin|effect)|export|render|bounce|soft clipper|overdrive|distortion|reverb|delay|sidechain|fruity \w+|plugin|preset|eq|compressor|limiter|gross beat|maximus|pitcher|flex|sytrus|harmor)\b/i;
+// ...unless it is mainly a job BoothMate CAN do ("write the chords ... they'll sit in reverb").
+const CAN = /\b(tempo|bpm|marker|drums?|drum pattern|808|chords?|progression|melody|clone|mixer track|name the|pan|volume)\b/i;
+
+// Tempo range BoothMate's drum genres are written in (see TEMPO_GUIDE).
+export const GENRE_BPM = { drill: [125, 155], trap: [125, 175], jersey_club: [125, 150], boom_bap: [75, 100], lofi: [65, 95], rnb: [55, 110] };
+
+// If the tempo sits outside the genre's range but its half or double sits inside,
+// the model made a half/double-time slip: use the one inside the range.
+export function reconcileTempo(bpm, genre) {
+  const range = GENRE_BPM[genre];
+  if (!range || !Number.isFinite(bpm) || bpm <= 0) return { bpm, changed: false };
+  const inside = (b) => b >= range[0] && b <= range[1];
+  if (inside(bpm)) return { bpm, changed: false };
+  for (const c of [Math.round(bpm / 2), Math.round(bpm * 2)]) if (inside(c)) return { bpm: c, changed: true, from: bpm, range };
+  return { bpm, changed: false, outside: true, range };
+}
 
 // Makes a model result safe and consistent before anyone sees it:
-// rounds the tempo, makes the first prompt set exactly that tempo, and moves
-// prompts BoothMate can't do into sound_setup.manual_steps.
+// fixes half/double-time slips against the genre, rounds the tempo, makes the
+// first prompt set exactly that tempo (and every prompt use the same BPM), and
+// moves prompts BoothMate can't do into sound_setup.manual_steps.
 export function tidyBreakdown(r) {
   if (!r || typeof r !== "object") return r;
   const out = { ...r };
-  const bpm = Math.round(Number(out.bpm));
+  let bpm = Math.round(Number(out.bpm));
+  const fix = reconcileTempo(bpm, out.boothmate_genre);
+  if (fix.changed) {
+    bpm = fix.bpm;
+    const note = `Tempo corrected from ${fix.from} to ${bpm} BPM: ${String(out.boothmate_genre).replace("_", " ")} beats sit around ${fix.range[0]}-${fix.range[1]} BPM, so ${fix.from} was a half/double-time reading. If it feels wrong against the video, try ${fix.from}.`;
+    out.notes = [out.notes, note].filter(Boolean).join(" ");
+    if (out.bpm_confidence === "high") out.bpm_confidence = "medium";
+  }
   if (Number.isFinite(bpm) && bpm > 0) out.bpm = bpm;
   let prompts = (Array.isArray(out.boothmate_prompts) ? out.boothmate_prompts : []).map((p) => String(p || "").trim()).filter(Boolean);
   const manual = [];
   prompts = prompts.filter((p, i) => {
-    if (i > 0 && CANT.test(p) && !/\b(name|pan|volume|level)\b/i.test(p)) { manual.push(p); return false; }
+    if (i > 0 && CANT.test(p) && !CAN.test(p)) { manual.push(p); return false; }
     return true;
   });
   if (Number.isFinite(bpm) && bpm > 0) {
@@ -191,6 +215,8 @@ export function tidyBreakdown(r) {
       if (!m || Math.round(Number(m[1])) !== bpm) prompts[first] = m ? prompts[first].replace(tempoRe, `${bpm} BPM`) : `Set the tempo to ${bpm} BPM. ${prompts[first]}`;
       if (first > 0) prompts.unshift(prompts.splice(first, 1)[0]);
     }
+    // Every later mention of a BPM must agree with the first prompt.
+    prompts = prompts.map((p, i) => (i === 0 ? p : p.replace(/(\d{2,3}(?:\.\d+)?)\s*bpm/gi, `${bpm} BPM`)));
   }
   out.boothmate_prompts = prompts.slice(0, 10);
   if (manual.length) {
@@ -202,7 +228,9 @@ export function tidyBreakdown(r) {
 }
 
 // Free teaser shown before payment: style, tempo and key from the first 90s.
-export const PREVIEW_PROMPT = `Listen to the first part of the attached YouTube video, a beat or type beat. In plain, exciting but honest language for a beginner producer, identify its style, tempo and key, and write a one-sentence hook describing the vibe. Do not describe the melody or drum pattern in detail. If it isn't music, say so in "hook" and set style to "not a beat".`;
+export const PREVIEW_PROMPT = `Listen to the first part of the attached YouTube video, a beat or type beat. In plain, exciting but honest language for a beginner producer, identify its style, tempo and key, and write a one-sentence hook describing the vibe. Do not describe the melody or drum pattern in detail. If it isn't music, say so in "hook" and set style to "not a beat". Decide the style from the drums first, then the tempo, so the two agree.
+
+${TEMPO_GUIDE}`;
 
 export const PREVIEW_SCHEMA = {
   type: "OBJECT",
