@@ -349,3 +349,13 @@ def test_welcome_window_is_recognised_by_title_or_size():
     assert _is_welcome({"title": "Welcome to FL Studio - in trial mode", "w": 10, "h": 10})
     assert _is_welcome({"title": "", "w": 874, "h": 573})
     assert not _is_welcome({"title": "FL Studio 2026", "w": 1710, "h": 998})
+
+
+@pytest.mark.parametrize("stderr,word", [
+    ("execution error: Not authorized to send Apple events to System Events. (-1743)", "Automation"),
+    ("System Events got an error: osascript is not allowed to send keystrokes. (1002)", "Accessibility"),
+    ("something else", "Accessibility"),
+])
+def test_mac_permission_hint_names_the_right_switch(stderr, word):
+    from fl_studio_mcp.pyscript_trigger import mac_permission_hint
+    assert word in mac_permission_hint(stderr)

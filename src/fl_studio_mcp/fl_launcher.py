@@ -128,9 +128,8 @@ def dismiss_welcome(attempts: int = 3) -> dict:
         for _ in range(attempts):
             wins, err = mac_windows()
             if wins is None:
-                return {"ok": False, "error": "Can't read FL Studio's windows. Turn on "
-                        "Accessibility for Claude in System Settings > Privacy & Security.",
-                        "detail": err}
+                from .pyscript_trigger import mac_permission_hint
+                return {"ok": False, "error": mac_permission_hint(err), "detail": err}
             trial = trial or any("trial" in (w["title"] or "").lower() for w in wins)
             welcome = [w for w in wins if _is_welcome(w)]
             if not welcome:

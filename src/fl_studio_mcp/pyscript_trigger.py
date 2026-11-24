@@ -13,6 +13,28 @@ import sys
 import time
 
 
+def mac_permission_hint(stderr: str) -> str:
+    """Name the exact macOS permission osascript was refused, in plain words.
+
+    Two separate switches are involved:
+      * Automation (Apple Events): "Claude" may control "System Events".
+        Refusal: error -1743 "Not authorized to send Apple events".
+      * Accessibility: "Claude" may send keystrokes. Refusal: error 1002
+        "not allowed to send keystrokes" / "assistive access".
+    """
+    e = (stderr or "").lower()
+    if "-1743" in e or "not authorized to send apple events" in e:
+        return ("macOS blocked Claude from controlling System Events. Turn it on in "
+                "System Settings > Privacy & Security > Automation > Claude > "
+                "System Events, then try again.")
+    if "1002" in e or "keystroke" in e or "assistive" in e or "accessibility" in e:
+        return ("macOS blocked Claude from sending keystrokes. Turn on Claude in "
+                "System Settings > Privacy & Security > Accessibility (if it's already "
+                "on, switch it off and on again), then try again.")
+    return ("macOS blocked the keystroke. Check that Claude is on in System Settings > "
+            "Privacy & Security, under both Accessibility and Automation > System Events.")
+
+
 def _trigger_macos(settle=0.35):
     """Focus FL Studio on macOS and send Cmd+Opt+Y."""
     try:
@@ -33,26 +55,21 @@ def _trigger_macos(settle=0.35):
         }
 
     time.sleep(settle)
-    try:
-        # System Events needs the same Accessibility permission pyautogui did,
-        # without installing a GUI-automation package.
-        subprocess.check_call(
-            ["osascript", "-e",
-             'tell application "System Events" to keystroke "y" '
-             'using {command down, option down}'],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+    r = subprocess.run(
+        ["osascript", "-e",
+         'tell application "System Events" to keystroke "y" '
+         'using {command down, option down}'],
+        capture_output=True, text=True,
+    )
+    if r.returncode != 0:
         return {
             "platform": "macos",
             "fl_found": True,
             "focused": focused,
             "sent_hotkey": False,
             "shortcut": "Cmd+Opt+Y",
-            "error": "Could not send the key. Grant Accessibility permission to the "
-                     "app running this server (System Settings > Privacy & Security "
-                     "> Accessibility). %s: %s" % (type(e).__name__, e),
+            "error": mac_permission_hint(r.stderr),
+            "detail": r.stderr.strip()[-300:],
         }
     return {
         "platform": "macos",
