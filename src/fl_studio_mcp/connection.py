@@ -434,6 +434,13 @@ class FLBridge:
         """Called from a background MIDI thread."""
         if msg.type != "sysex":
             return
+        reply = protocol.identity_reply(msg.data)
+        if reply is not None:
+            # FL asks "who are you?"; answering lets it match
+            # supportedHardwareIds in the BoothMate script.
+            with contextlib.suppress(Exception):
+                self._out_port.send(mido.Message("sysex", data=reply))
+            return
         decoded = protocol.decode_message(msg.data)
         if decoded is None:
             return  # Not one of ours -- ignore.

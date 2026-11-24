@@ -112,7 +112,7 @@ def _manual_steps(plat: str, virtual: bool) -> list[str]:
         else:
             steps.append("configure and verify ALSA MIDI ports on the Linux host; "
                          "Linux FL integration is experimental")
-        steps.append("in FL: enable FLStudioMCP RX (input, Controller type=FLStudioMCP) "
+        steps.append("in FL: enable FLStudioMCP RX (input, Controller type=BoothMate Studio) "
                      "and FLStudioMCP TX (output) with the SAME port number")
     steps.append("run 'MCP_Apply' once from the Piano roll Scripting menu each session")
     if plat == "darwin":

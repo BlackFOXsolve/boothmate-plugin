@@ -78,7 +78,26 @@ DEFAULT_PORT_FROM_FL = "FLStudioMCP TX"
 # filed it as a generic controller. server.main now creates the port at start
 # and open_fl_studio makes sure it exists before launching FL. Renamed again
 # so machines that already filed "BoothMate" as generic get a clean start.
-SHARED_PORT_NAME = "BoothMate Link"
+# 0.1.4: on FL Studio 2026.1.7 (macOS) supportedDevices alone did not link a
+# virtual port even when it existed before FL started. The port now carries
+# the script's own "# name=" (how FL originally matched devices, and what the
+# upstream live test had: port and script both "FLStudioMCP"), and the
+# server answers FL's MIDI identity request with HARDWARE_ID, which the
+# script lists under supportedHardwareIds.
+SHARED_PORT_NAME = "BoothMate Studio"
+
+# Universal SysEx identity reply body (after F0 7E <dev> 06 02):
+# manufacturer 7D (non-commercial), family 42 00, model 4D 00, version 00 01 03 00.
+HARDWARE_ID = (0x7D, 0x42, 0x00, 0x4D, 0x00, 0x00, 0x01, 0x03, 0x00)
+
+
+def identity_reply(request_data):
+    """Return the sysex data for an identity reply if ``request_data`` (the
+    bytes between F0 and F7) is a Universal Identity Request, else None."""
+    d = tuple(request_data)
+    if len(d) == 4 and d[0] == 0x7E and d[2] == 0x06 and d[3] == 0x01:
+        return (0x7E, d[1], 0x06, 0x02) + HARDWARE_ID
+    return None
 
 
 def port_names_overridden() -> bool:

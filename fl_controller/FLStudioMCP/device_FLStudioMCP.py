@@ -1,7 +1,8 @@
-# name=FLStudioMCP
+# name=BoothMate Studio
 # url=https://github.com/rosasynthesiz/flstudio-mcp
 # receiveFrom=
-# supportedDevices=BoothMate Link,BoothMate,FLStudioMCP,FLStudioMCP RX
+# supportedDevices=BoothMate Studio,BoothMate Link,BoothMate,FLStudioMCP,FLStudioMCP RX
+# supportedHardwareIds=7D 42 00 4D 00 00 01 03 00
 """FLStudioMCP controller script -- MIDI SysEx transport.
 
 Installed by ``fl-studio-mcp setup`` to:
@@ -17,7 +18,7 @@ How FL links this script:
     enables both by itself. Nothing to do in MIDI Settings.
   * Windows (loopMIDI ports "FLStudioMCP RX" and "FLStudioMCP TX"):
     Options > MIDI Settings
-        Input  list -> "FLStudioMCP RX": Enable, Controller type = FLStudioMCP,
+        Input  list -> "FLStudioMCP RX": Enable, Controller type = BoothMate Studio,
                        Port = any number.
         Output list -> "FLStudioMCP TX": Port = the SAME number.
     The matching Port number is how FL's ``device.midiOutSysex(...)`` finds

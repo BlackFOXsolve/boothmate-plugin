@@ -51,7 +51,7 @@ STATUS_HELP = {
     "FL_CLOSED": "Open FL Studio and load any project.",
     "NO_HEARTBEAT": "Restart FL Studio once (needed only the first time). If it "
                     "still fails: Options > MIDI Settings, select FLStudioMCP in "
-                    "Input, turn on Enable, choose Controller type FLStudioMCP, "
+                    "Input, turn on Enable, choose Controller type BoothMate Studio, "
                     "and give Input and Output the same Port number. On the "
                     "Microsoft Store build of Claude Desktop, also start "
                     "`fl-studio-mcp-daemon` (scripts\\start_daemon.bat) first.",

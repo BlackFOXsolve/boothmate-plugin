@@ -19,7 +19,7 @@ Every change is undoable. Setup for Windows and Mac: [skills/boothmate/reference
 
 ## Install
 
-**Claude desktop app (Windows or Mac):** download [BoothMate.mcpb](https://github.com/BlackFOXsolve/boothmate-plugin/raw/main/downloads/BoothMate-0.1.3.mcpb) and double-click it. Claude opens it and asks you to install.
+**Claude desktop app (Windows or Mac):** download [BoothMate.mcpb](https://github.com/BlackFOXsolve/boothmate-plugin/raw/main/downloads/BoothMate-0.1.4.mcpb) and double-click it. Claude opens it and asks you to install.
 
 **Claude Code:**
 
@@ -37,7 +37,7 @@ About ten minutes, once. Claude walks you through it; the full guide is in [setu
    - Mac (Terminal): `curl -LsSf https://astral.sh/uv/install.sh | sh`
 2. **Windows only:** install [loopMIDI](https://www.tobias-erichsen.de/software/loopmidi.html) and create two ports named exactly `FLStudioMCP RX` and `FLStudioMCP TX`.
 3. **Open FL Studio, then tell Claude "set up BoothMate".** It installs the FL Studio scripts for you. Restart FL Studio if it was open.
-4. **If Claude says FL Studio still isn't connected:** in FL Studio, Options > MIDI Settings. Select `BoothMate Link` (Mac) or `FLStudioMCP RX` (Windows) under Input, turn on Enable, set Controller type to **FLStudioMCP** and Port to 0, then give the matching Output the same Port.
+4. **If Claude says FL Studio still isn't connected:** in FL Studio, Options > MIDI Settings. Select `BoothMate Studio` (Mac) or `FLStudioMCP RX` (Windows) under Input, turn on Enable, set Controller type to **BoothMate Studio** and Port to 0, then give the matching Output the same Port.
 5. **Mac only:** allow Claude under System Settings > Privacy & Security > Accessibility, and under Automation > Claude > System Events.
 6. **Each FL session:** open the Piano roll and click Scripting > MCP Apply once.
 7. **Say "make me a trap beat."**
@@ -291,7 +291,7 @@ numeric JSON compatibility, dry-run behavior, and localized parameter names.
 | `FL Studio Settings\Hardware folder not found` | Open FL Studio once so it creates its user-data folder. If you moved that folder (Options > File settings > User data folder), `setx FL_SETTINGS "<that folder>\FL Studio\Settings"`, open a new terminal and re-run. |
 | `fl-studio-mcp-daemon` is not recognized | The commands live in the repo's `.venv\Scripts\` folder. Run them by full path (the installer prints it). |
 | Python crashes on start / MIDI library fails to load (Windows) | Install Python 3.12 from python.org, delete the `.venv` folder, and re-run the installer. |
-| No `[FLStudioMCP] Ready` in FL's Script output | The controller isn't registered: set the `FLStudioMCP RX` input's **Controller type** to **FLStudioMCP** in MIDI Settings, confirm `device_FLStudioMCP.py` is in `Settings\Hardware\FLStudioMCP\`, then fully restart FL Studio. |
+| No `[FLStudioMCP] Ready` in FL's Script output | The controller isn't registered: set the `FLStudioMCP RX` input's **Controller type** to **BoothMate Studio** in MIDI Settings, confirm `device_FLStudioMCP.py` is in `Settings\Hardware\FLStudioMCP\`, then fully restart FL Studio. |
 | Claude can't reach FL / `fl_ping` fails | Run `fl-studio-mcp doctor` and do the step it prints. `fl_ping` returns the same `status` and `next`. Most common: FL Studio has no project loaded yet, or FL was opened before the server the first time (restart FL once). |
 | `fl_ping` says the heartbeat is stale (`Ready` is shown, but FL stops answering) | Usually happens after changing MIDI Settings while the script is running. Open View > Script output, select the FLStudioMCP tab and click **Reload script** (or restart FL Studio). Also check that the Output port number is on `FLStudioMCP TX`, not `FLStudioMCP RX`. |
 | Note-writing does nothing | Run `MCP_Apply` once from the piano roll's scripting menu this session — it arms the note bridge. |
