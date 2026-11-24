@@ -29,7 +29,7 @@ export default async (req, context) => {
     const id = url.searchParams.get("id");
     if (!id) {
       const used = Number((await db.get(countKey)) || 0);
-      return json(200, { status: "ready", used, limit: DAILY_LIMIT, geminiReady: !!process.env.GEMINI_API_KEY, gateway: { key: !!process.env.NETLIFY_AI_GATEWAY_KEY, url: !!(process.env.NETLIFY_AI_GATEWAY_URL || process.env.NETLIFY_AI_GATEWAY_BASE_URL), geminiBase: !!process.env.GOOGLE_GEMINI_BASE_URL, netlifyEnvKey: (() => { try { return !!globalThis.Netlify?.env?.get("GEMINI_API_KEY"); } catch { return false; } })() }, context: context?.deploy?.context || process.env.CONTEXT || "unknown" });
+      return json(200, { status: "ready", used, limit: DAILY_LIMIT, geminiReady: !!process.env.GEMINI_API_KEY, context: context?.deploy?.context || process.env.CONTEXT || "unknown" });
     }
     if (!/^[a-f0-9]{12}$/.test(id)) return json(400, { error: "Bad test id." });
     const rec = await db.get(`job:${id}`, { type: "json" });
