@@ -54,6 +54,8 @@ def test_port_check_ran():
 def test_chords_ready():
     if "Audio to MIDI not installed" in _log():
         pytest.skip("installed without audio to MIDI")
+    if "does not provide the extra 'audio-chords'" in _log():
+        pytest.skip("BoothMate ships without the chords-to-MIDI extra")
     assert "Chords to MIDI: ready" in _log(), "installer log doesn't say 'Chords to MIDI: ready'"
 
 

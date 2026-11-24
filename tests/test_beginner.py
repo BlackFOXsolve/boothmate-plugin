@@ -372,7 +372,7 @@ def test_port_name_is_listed_in_controller_script():
     import pathlib
     from fl_studio_mcp import protocol
     head = pathlib.Path(__file__).parents[1].joinpath(
-        "fl_controller/FLStudioMCP/device_FLStudioMCP.py").read_text().splitlines()[:6]
+        "fl_controller/FLStudioMCP/device_FLStudioMCP.py").read_text(encoding="utf-8").splitlines()[:6]
     line = next(l for l in head if l.startswith("# supportedDevices="))
     assert protocol.SHARED_PORT_NAME in line.split("=", 1)[1].split(",")
 
@@ -383,7 +383,7 @@ def test_identity_request_gets_boothmate_hardware_id():
     reply = protocol.identity_reply([0x7E, 0x7F, 0x06, 0x01])
     assert reply[:4] == (0x7E, 0x7F, 0x06, 0x02)
     head = pathlib.Path(__file__).parents[1].joinpath(
-        "fl_controller/FLStudioMCP/device_FLStudioMCP.py").read_text().splitlines()[:8]
+        "fl_controller/FLStudioMCP/device_FLStudioMCP.py").read_text(encoding="utf-8").splitlines()[:8]
     ids = next(l for l in head if l.startswith("# supportedHardwareIds=")).split("=", 1)[1]
     assert ids == " ".join("%02X" % b for b in protocol.HARDWARE_ID)
     assert protocol.identity_reply([0x7E, 0x7F, 0x06, 0x02]) is None
@@ -394,5 +394,5 @@ def test_port_name_is_the_script_name():
     import pathlib
     from fl_studio_mcp import protocol
     first = pathlib.Path(__file__).parents[1].joinpath(
-        "fl_controller/FLStudioMCP/device_FLStudioMCP.py").read_text().splitlines()[0]
+        "fl_controller/FLStudioMCP/device_FLStudioMCP.py").read_text(encoding="utf-8").splitlines()[0]
     assert first == "# name=" + protocol.SHARED_PORT_NAME
