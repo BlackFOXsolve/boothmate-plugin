@@ -31,13 +31,24 @@ export default async (req) => {
   if (rec?.refunded) return json(200, { ...base, status: "error", refunded: true, canRetry: false, error: rec.error });
   if ((rec?.attempts || 0) >= MAX_ATTEMPTS) return json(429, { ...base, status: "error", canRetry: false, refunded: !!rec.refunded, refundFailed: !!rec.refundFailed, error: "We tried this video three times and couldn't break it down." });
 
-  await db.setJSON(paid.id, { status: "running", attempts: (rec?.attempts || 0) + 1, updated: Date.now(), video: base.video });
+  const prevAttempts = rec?.attempts || 0;
+  await db.setJSON(paid.id, { status: "running", attempts: prevAttempts + 1, updated: Date.now(), video: base.video });
   // Background function: returns 202 at once and keeps running up to 15 minutes.
-  await fetch(`${siteUrl(req)}/.netlify/functions/run-breakdown-background`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ session_id: paid.id }),
-  });
+  let started = false;
+  try {
+    const r = await fetch(`${siteUrl(req)}/.netlify/functions/run-breakdown-background`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ session_id: paid.id }),
+    });
+    started = r.ok;
+    if (!r.ok) console.error("breakdown worker did not start", r.status);
+  } catch (e) { console.error("breakdown worker did not start", e); }
+  if (!started) {
+    // Not the customer's fault, so it doesn't use up one of their three attempts.
+    await db.setJSON(paid.id, { status: "error", attempts: prevAttempts, updated: Date.now(), video: base.video, error: "We couldn't start your breakdown. Press Try again in a minute." });
+    return json(200, { ...base, status: "error", canRetry: true, error: "We couldn't start your breakdown. Press Try again in a minute." });
+  }
   return json(202, { ...base, status: "running" });
 };
 

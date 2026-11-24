@@ -26,7 +26,9 @@ export default async (req) => {
       };
 
   const site = siteUrl(req);
-  const session = await stripe("checkout/sessions", {
+  let session;
+  try {
+  session = await stripe("checkout/sessions", {
     method: "POST",
     form: {
       mode: "payment",
@@ -40,6 +42,10 @@ export default async (req) => {
       "custom_text[submit][message]": `Breakdown of: ${(info.title || yt.url).slice(0, 180)}`,
     },
   });
+  } catch (e) {
+    console.error("checkout failed", e);
+    return json(503, { error: "Checkout isn't available right now. Please try again in a few minutes." });
+  }
   return json(200, { url: session.url, video: { id: yt.id, ...info } });
 };
 

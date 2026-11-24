@@ -19,6 +19,7 @@ export default async (req, context) => {
     return json(200, { status: stale ? "error" : rec.status, preview: rec.preview, video: rec.video, error: stale ? "The preview timed out. Try again." : rec.error });
   }
   if (req.method !== "POST") return json(405, { error: "Use GET or POST." });
+  if (!process.env.GEMINI_API_KEY) return json(503, { error: "Free previews are switched off for a moment. Please try again soon." });
   let body = {};
   try { body = await req.json(); } catch {}
   const yt = parseYouTube(body.url);
@@ -39,9 +40,19 @@ export default async (req, context) => {
   await db.set(rlKey, String(used + 1));
 
   await db.setJSON(`v:${yt.id}`, { status: "running", updated: Date.now(), video });
-  await fetch(`${siteUrl(req)}/.netlify/functions/run-preview-background`, {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: yt.id }),
-  });
+  let started = false;
+  try {
+    const r = await fetch(`${siteUrl(req)}/.netlify/functions/run-preview-background`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: yt.id }),
+    });
+    started = r.ok;
+    if (!r.ok) console.error("preview worker did not start", r.status);
+  } catch (e) { console.error("preview worker did not start", e); }
+  if (!started) {
+    await db.setJSON(`v:${yt.id}`, { status: "error", updated: Date.now(), video, error: "The free preview couldn't start. Try again in a minute." });
+    await db.set(rlKey, String(used)); // don't count a preview that never ran
+    return json(200, { status: "error", video, error: "The free preview couldn't start. Try again in a minute." });
+  }
   return json(202, { status: "running", video });
 };
 
