@@ -51,12 +51,11 @@ def test_port_check_ran():
 
 
 @needs_log
-def test_chords_ready():
-    if "Audio to MIDI not installed" in _log():
-        pytest.skip("installed without audio to MIDI")
-    if "does not provide the extra 'audio-chords'" in _log():
-        pytest.skip("BoothMate ships without the chords-to-MIDI extra")
-    assert "Chords to MIDI: ready" in _log(), "installer log doesn't say 'Chords to MIDI: ready'"
+def test_audio_extra_reported():
+    log = _log()
+    assert ("Audio analysis: installed" in log or "Audio analysis not installed" in log), \
+        "installer log doesn't report the audio analysis option"
+    assert "does not provide the extra" not in log, "installer asked pip for an extra BoothMate doesn't have"
 
 
 @needs_log

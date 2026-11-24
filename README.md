@@ -264,12 +264,10 @@ server (**System Settings > Privacy & Security > Accessibility**).
 
 **Optional audio features** (not installed by default):
 ```
-pip install -e ".[audio]"                    # tempo/key, drums to MIDI, light melody
-pip install -e ".[audio,audio-accurate]"     # + CREPE (accurate melody)
-pip install -e ".[audio-chords]"             # chords: then also run
-pip install --no-deps basic-pitch==0.4.0     #   (skips its TensorFlow requirement)
+pip install -e ".[audio]"                    # tempo/key, drums to MIDI, melody to MIDI
 ```
-The installers take `FLMCP_EXTRAS` (`all`, `none`, or any of `audio accurate chords`);
+BoothMate leaves out the original project's AI extras (CREPE, Basic Pitch).
+The installers take `FLMCP_EXTRAS` (`audio` or `all` to add it, `none` to skip);
 the Windows installer also asks.
 
 **Undo is tied to the project.** Every change Claude makes can be rolled back

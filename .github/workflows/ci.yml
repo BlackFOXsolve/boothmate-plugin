@@ -65,7 +65,7 @@ jobs:
       - name: Install with every extra
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,audio,audio-accurate,audio-chords]"
+          python -m pip install -e ".[dev,audio]"
           python -m pip install --no-deps "basic-pitch==0.4.0"
       - name: Installed packages
         run: python scripts/ci_packages.py
@@ -93,7 +93,7 @@ jobs:
           $s = "$env:RUNNER_TEMP\FLData\FL Studio\Settings"
           New-Item -ItemType Directory -Force "$s\Hardware" | Out-Null
           "FL_SETTINGS=$s" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
-      - name: Run installer (answer yes to audio to MIDI)
+      - name: Run installer (answer yes to audio analysis)
         shell: cmd
         env:
           FLMCP_EXTRAS: all
@@ -125,7 +125,7 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Fake FL user data folder
         run: mkdir -p "$HOME/Documents/Image-Line/FL Studio/Settings/Hardware"
-      - name: Run installer (answer yes to audio to MIDI)
+      - name: Run installer (answer yes to audio analysis)
         env:
           FLMCP_EXTRAS: all
         run: ./scripts/install_macos.sh 2>&1 | tee install.log

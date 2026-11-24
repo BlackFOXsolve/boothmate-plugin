@@ -30,22 +30,14 @@ echo "[1/3] Private environment: $VENV"
 
 echo "[2/3] Installing the MCP server..."
 FLMCP_EXTRAS="${FLMCP_EXTRAS:-none}"
-[[ "$FLMCP_EXTRAS" == *all* ]] && FLMCP_EXTRAS="audio accurate chords"
-EXTRAS=()
-[[ "$FLMCP_EXTRAS" == *audio* || "$FLMCP_EXTRAS" == *accurate* ]] && EXTRAS+=("audio")
-[[ "$FLMCP_EXTRAS" == *accurate* ]] && EXTRAS+=("audio-accurate")
-[[ "$FLMCP_EXTRAS" == *chords* ]] && EXTRAS+=("audio-chords")
-if (( ${#EXTRAS[@]} )); then
-  joined="$(IFS=,; echo "${EXTRAS[*]}")"
-  "$VENV/bin/python" -m pip install --quiet -e ".[$joined]"
-  if [[ "$FLMCP_EXTRAS" == *chords* ]]; then
-    # Skip Basic Pitch's TensorFlow/CoreML pins; we run its ONNX model.
-    "$VENV/bin/python" -m pip install --quiet --no-deps "basic-pitch==0.4.0"
-    "$VENV/bin/python" -c "from fl_studio_mcp.tools.audio import chords_available as c; print('  Chords to MIDI: ready' if c() else '  WARNING: chords to MIDI is not working')"
-  fi
+# BoothMate ships one optional extra, [audio]. "all" and "audio" install it.
+# The upstream AI extras (CREPE, Basic Pitch) are not part of BoothMate.
+if [[ "$FLMCP_EXTRAS" == *all* || "$FLMCP_EXTRAS" == *audio* ]]; then
+  "$VENV/bin/python" -m pip install --quiet -e ".[audio]"
+  echo "  Audio analysis: installed"
 else
   "$VENV/bin/python" -m pip install --quiet -e .
-  echo "  Audio to MIDI not installed (optional: FLMCP_EXTRAS=all)."
+  echo "  Audio analysis not installed (optional: FLMCP_EXTRAS=audio)."
 fi
 
 echo "[3/3] Controller + connection check..."
