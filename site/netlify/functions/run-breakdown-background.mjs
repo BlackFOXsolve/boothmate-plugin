@@ -4,7 +4,7 @@
 // the customer's last allowed attempt, the payment is refunded automatically.
 import { paidSession, store, refundSession } from "./lib/common.mjs";
 import { geminiVideo, friendly } from "./lib/gemini.mjs";
-import { BREAKDOWN_PROMPT, BREAKDOWN_SCHEMA } from "./lib/prompt.mjs";
+import { breakdownPrompt, BREAKDOWN_SCHEMA, tidyBreakdown } from "./lib/prompt.mjs";
 
 export const MAX_ATTEMPTS = 3;
 const MAX_SECONDS = Number(process.env.BREAKDOWN_MAX_SECONDS || 600); // analyse at most the first 10 minutes
@@ -21,7 +21,7 @@ export default async (req) => {
   const save = (patch) => db.setJSON(paid.id, { ...rec, ...patch, updated: Date.now() });
 
   try {
-    const result = await geminiVideo({ url: paid.youtube.url, prompt: BREAKDOWN_PROMPT, schema: BREAKDOWN_SCHEMA, seconds: MAX_SECONDS });
+    const result = tidyBreakdown(await geminiVideo({ url: paid.youtube.url, prompt: breakdownPrompt({ title: paid.title }), schema: BREAKDOWN_SCHEMA, seconds: MAX_SECONDS }));
     if (!result?.boothmate_prompts?.length) throw new Error("Empty breakdown");
     await save({ status: "done", result, error: null, finished: Date.now() });
   } catch (e) {

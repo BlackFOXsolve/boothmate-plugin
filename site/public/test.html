@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Beat Breakdown test mode · BoothMate</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/breakdown.css">
+<style>
+.form{display:flex;gap:10px;flex-wrap:wrap}
+.form input{flex:1 1 320px;min-height:52px;border-radius:10px;border:1px solid #3A3A44;background:var(--bg);color:var(--text);font:inherit;padding:0 14px}
+.form input:focus{outline:2px solid var(--acc);outline-offset:1px}
+.player{position:relative;width:100%;aspect-ratio:16/9;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#000}
+.player iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.pill{display:inline-block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--acc);color:var(--acc);border-radius:999px;padding:3px 10px}
+pre.raw{white-space:pre-wrap;word-break:break-word;font-size:12px;background:var(--bg);border:1px solid #3A3A44;border-radius:12px;padding:12px;max-height:420px;overflow:auto;margin:0}
+</style>
+</head>
+<body>
+<div class="blob" style="width:520px;height:520px;left:-10%;top:-8%;background:#5CC8FF"></div>
+<div class="blob" style="width:460px;height:460px;right:-8%;top:40%;background:var(--acc)"></div>
+<div class="wrap">
+<header>
+<a class="logo" href="/"><img src="/favicon.svg" width="28" height="28" alt="">BoothMate</a>
+<span class="pill">Owner test mode</span>
+</header>
+<section class="glass card" id="start">
+<div class="label">Beat Breakdown test</div>
+<h1 style="font-size:clamp(26px,3.6vw,36px)">Paste a YouTube beat link</h1>
+<p class="muted" style="margin:0" id="status">Checking test mode…</p>
+<form class="form" id="form" autocomplete="off">
+<input id="url" type="url" inputmode="url" placeholder="https://www.youtube.com/watch?v=…" aria-label="YouTube link" required>
+<button class="btn btn-p" id="go" type="submit">Break it down</button>
+</form>
+</section>
+<div id="playerWrap" style="margin-top:24px" hidden><div class="player" id="player"></div></div>
+<main id="main" aria-live="polite" style="margin-top:24px"></main>
+<footer>Private test page: the full paid breakdown with no payment, for checking quality before launch. It only works on Deploy Previews or with the owner key, and runs at most 25 times a day.</footer>
+</div>
+<script src="/breakdown-view.js"></script>
+<script>
+(function () {
+  "use strict";
+  var esc = BBView.esc;
+  var q = new URLSearchParams(location.search);
+  var key = q.get("key") || "";
+  var main = document.getElementById("main"), statusEl = document.getElementById("status"), form = document.getElementById("form"), input = document.getElementById("url"), go = document.getElementById("go");
+  var job = null, lastUrl = "", polls = 0, t0 = 0, timer = null;
+  var steps = ["Watching the video", "Listening for tempo and key", "Checking half-time and double-time", "Mapping the drums and 808", "Picking FL Studio stock sounds", "Writing your BoothMate prompts"];
+
+  function api(path) { return "/api/test-breakdown" + path + (key ? (path.indexOf("?") >= 0 ? "&" : "?") + "key=" + encodeURIComponent(key) : ""); }
+  function setUrlState(id) {
+    var p = new URLSearchParams(); if (id) p.set("id", id); if (key) p.set("key", key);
+    history.replaceState(null, "", location.pathname + (p.toString() ? "?" + p.toString() : ""));
+  }
+  function player(v) {
+    var w = document.getElementById("playerWrap");
+    if (!v || !v.id) { w.hidden = true; return; }
+    var el = document.getElementById("player");
+    if (el.getAttribute("data-v") === v.id) { w.hidden = false; return; }
+    el.setAttribute("data-v", v.id);
+    el.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + esc(v.id) + '?rel=0" title="' + esc(v.title || "YouTube video") + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+    w.hidden = false;
+  }
+  function mmss(ms) { var s = Math.floor(ms / 1000); return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2); }
+  function waiting(v) {
+    player(v);
+    var step = steps[Math.min(steps.length - 1, Math.floor(polls / 4))];
+    main.innerHTML = '<section class="glass wait in"><div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><h2>' + esc(step) + '…</h2><p class="muted" style="margin:0;max-width:520px">' + esc(v && v.title ? v.title : "Your beat") + '<br>Elapsed <b id="elapsed">' + mmss(Date.now() - t0) + '</b>. The full breakdown listens to the whole video (up to 10 minutes), so it usually takes 1 to 4 minutes. You can leave this page open or bookmark it.</p></section>';
+  }
+  function tick() { var e = document.getElementById("elapsed"); if (e) e.textContent = mmss(Date.now() - t0); }
+  function busy(on) { go.disabled = on; input.disabled = on; go.textContent = on ? "Running…" : "Break it down"; }
+  function failed(msg, detail, canRetry) {
+    busy(false); clearInterval(timer);
+    main.innerHTML = '<section class="glass card err in"><h2>We hit a snag</h2><p class="muted" style="margin:0">' + esc(msg || "Something went wrong.") + "</p>" +
+      (detail ? '<details><summary class="muted" style="cursor:pointer">Technical detail (owner only)</summary><pre class="raw">' + esc(detail) + "</pre></details>" : "") +
+      (canRetry && lastUrl ? '<div><button class="btn btn-p" id="retry">Try again</button></div>' : "") + "</section>";
+    var b = document.getElementById("retry"); if (b) b.onclick = function () { start(lastUrl); };
+  }
+  function done(j) {
+    busy(false); clearInterval(timer);
+    player(j.video);
+    var took = j.finished && j.started ? " in " + mmss(j.finished - j.started) : "";
+    var extra = '<div class="glass card"><h3>Judge it</h3><p class="muted" style="margin:0">Load the sounds in step 1, run the prompts in FL Studio, then play the reference above next to your beat: does it sound like what you were looking for? Finished' + esc(took) + '.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" id="again">Break down another beat</button><button class="btn" id="rerun">Run this video again</button></div>' +
+      '<details><summary class="muted" style="cursor:pointer">Raw result (JSON)</summary><pre class="raw">' + esc(JSON.stringify(j.result, null, 2)) + "</pre></details></div>";
+    BBView.renderResult(main, null, j.result, { label: "Test run", hideCta: true, extra: extra });
+    document.getElementById("again").onclick = function () { setUrlState(null); main.innerHTML = ""; player(null); input.value = ""; input.focus(); window.scrollTo(0, 0); };
+    document.getElementById("rerun").onclick = function () { start(j.video && j.video.url); };
+  }
+  function handle(j) {
+    lastUrl = (j.video && j.video.url) || lastUrl;
+    if (j.status === "done" && j.result) return done(j);
+    if (j.status === "error" || j.status === "missing") return failed(j.error, j.detail, true);
+    waiting(j.video);
+    polls++;
+    if (polls > 240) return failed("This is taking much longer than usual. Refresh the page in a few minutes; the result will appear here if it finishes.", null, false);
+    setTimeout(poll, 5000);
+  }
+  function poll() {
+    fetch(api("?id=" + encodeURIComponent(job)), { cache: "no-store" }).then(function (r) { return r.json(); }).then(handle, function () { setTimeout(poll, 8000); });
+  }
+  function begin(id, startedAt) {
+    job = id; polls = 0; t0 = startedAt || Date.now();
+    setUrlState(id); busy(true);
+    clearInterval(timer); timer = setInterval(tick, 1000);
+  }
+  function start(link) {
+    if (!link) return;
+    lastUrl = link; busy(true); t0 = Date.now(); polls = 0;
+    main.innerHTML = '<section class="glass wait in"><div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><h2>Opening the video…</h2></section>';
+    fetch(api(""), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: link, key: key }) })
+      .then(function (r) { return r.json().catch(function () { return { status: "error", error: "Test mode isn't available here (" + r.status + ")." }; }).then(function (j) { j._http = r.status; return j; }); })
+      .then(function (j) {
+        if (j.id && j.status === "running") { begin(j.id); waiting(j.video); setTimeout(poll, 5000); refreshCount(); return; }
+        if (j.id) { setUrlState(j.id); }
+        failed(j.error || "Couldn't start the test.", null, j._http !== 429 && j._http !== 400);
+      }, function () { failed("Couldn't reach the server. Check your connection and try again.", null, true); });
+  }
+  function refreshCount() {
+    return fetch(api(""), { cache: "no-store" }).then(function (r) {
+      if (r.status === 404) { statusEl.innerHTML = "Test mode isn't switched on here. Open this page on the pull request's <b>Deploy Preview</b> link, or add <code>?key=…</code> with the owner key."; form.hidden = true; return null; }
+      return r.json();
+    }).then(function (j) {
+      if (!j) return;
+      statusEl.textContent = "Runs the full paid breakdown with no payment. " + (j.limit - j.used) + " of " + j.limit + " test runs left today (UTC)." + (j.geminiReady ? "" : " Warning: this deploy has no GEMINI_API_KEY, so runs will fail.");
+    }, function () { statusEl.textContent = "Couldn't reach the server."; });
+  }
+
+  form.addEventListener("submit", function (e) { e.preventDefault(); start(input.value.trim()); });
+  refreshCount();
+  var id = q.get("id");
+  if (id) { begin(id); poll(); }
+})();
+</script>
+</body>
+</html>
