@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import glob
 import os
+import subprocess
+import time
 import sys
 from pathlib import Path
 from typing import Annotated
@@ -235,13 +237,31 @@ def assign_roles(names: list[str], roles: list[str]) -> dict[str, int]:
     return out
 
 
+def bring_fl_to_front() -> bool:
+    """FL only gives its Browser keyboard focus while FL is the active app
+    (verified FL 2026.1.7: focus stays -1 while the user is in Claude)."""
+    try:
+        if sys.platform == "darwin":
+            r = subprocess.run(["osascript", "-e",
+                                'tell application id "com.image-line.flstudio" to activate'],
+                               capture_output=True, timeout=5)
+            return r.returncode == 0
+        if sys.platform == "win32":
+            r = subprocess.run(["powershell", "-NoProfile", "-Command",
+                                "(New-Object -ComObject WScript.Shell).AppActivate('FL Studio')"],
+                               capture_output=True, timeout=8)
+            return r.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return False
+
+
 def _call(op: str, **params) -> dict:
     return get_bridge().call(protocol.CMD_BROWSER, {"op": op, **params})
 
 
 def load_into_channel(path: str, channel: int, roots: list[Path]) -> dict:
-    """Walk FL's Browser to `path` and load it into `channel` (-1 = try a new
-    channel). Opens only the folders it needs and closes them afterwards."""
+    """Walk FL's Browser to `path` and load it into `channel`. Opens only the folders it needs and closes them afterwards."""
     segs = browser_segments(path, roots)
     if not segs:
         return {"ok": False, "error": "BoothMate can only load sounds from FL Studio's own "
@@ -250,7 +270,11 @@ def load_into_channel(path: str, channel: int, roots: list[Path]) -> dict:
     opened: list[str] = []
     home = _call("home")
     if not home.get("focused", True):
-        return {"ok": False, "error": "FL Studio's Browser didn't respond. Open FL Studio and try again."}
+        bring_fl_to_front()
+        time.sleep(0.8)
+        home = _call("home")
+    if not home.get("focused", True):
+        return {"ok": False, "error": "FL Studio's Browser couldn't take focus. Click on FL Studio once and try again."}
     root = os.path.dirname(path)
     for _ in range(len(segs) - 1):
         root = os.path.dirname(root)
@@ -351,7 +375,7 @@ def register(mcp: FastMCP) -> None:
     @mcp.tool(annotations={"title": "Load a sound into a channel", **_WR})
     def fl_load_sound(
         sound: Annotated[str, Field(description="A path from fl_find_sounds, or search words like 'trap clap' or '808 open hat'.")],
-        channel: Annotated[str | None, Field(description="Channel to load into: its number (0 = first) or a name like 'Kick', 'Snare', '808'. Leave empty to try adding a new channel.")] = None,
+        channel: Annotated[str, Field(description="Channel to load into: its number (0 = first) or a name like 'Kick', 'Snare', '808'. FL can't add channels from a script, so it must be an existing one.")],
         name: Annotated[str | None, Field(description="Rename the channel after loading, e.g. 'Kick'.")] = None,
         mixer_track: Annotated[int | None, Field(ge=1, description="Mixer insert to route the channel to.")] = None,
         replace_instrument: Annotated[bool, Field(description="Allow loading a sample over a channel that holds an instrument plugin (it becomes a sampler). Off by default.")] = False,
@@ -370,28 +394,29 @@ def register(mcp: FastMCP) -> None:
             if not hits:
                 return {"ok": False, "error": "No FL Studio stock sound matches '%s'." % sound}
             path = hits[0]["path"]
+        if channel in (None, ""):
+            return {"ok": False, "error": "Name a channel to load into. FL Studio can't add new channels "
+                                          "from a script; ask the user to add an empty Sampler channel."}
         target = -1
-        chans = None
-        if channel not in (None, ""):
-            chans = _channels()
-            if str(channel).strip().isdigit():
-                target = int(str(channel).strip())
-            else:
-                want = str(channel).strip().lower()
-                exact = [c["i"] for c in chans if c["name"].lower() == want]
-                part = [c["i"] for c in chans if want in c["name"].lower()]
-                pick = exact or part
-                if not pick:
-                    return {"ok": False, "error": "No channel named '%s'." % channel,
-                            "channels": [c["name"] for c in chans]}
-                target = pick[0]
-            if target >= len(chans):
-                return {"ok": False, "error": "There is no channel %d." % target}
-            ctype = chans[target]["type"]
-            if ctype not in (CT_SAMPLER, CT_AUDIOCLIP, None) and not replace_instrument:
-                return {"ok": False, "error": "Channel '%s' holds an instrument plugin, not a sampler. "
-                                              "Pick a sampler channel, or set replace_instrument "
-                                              "to swap the instrument for this sample." % chans[target]["name"]}
+        chans = _channels()
+        if str(channel).strip().isdigit():
+            target = int(str(channel).strip())
+        else:
+            want = str(channel).strip().lower()
+            exact = [c["i"] for c in chans if c["name"].lower() == want]
+            part = [c["i"] for c in chans if want in c["name"].lower()]
+            pick = exact or part
+            if not pick:
+                return {"ok": False, "error": "No channel named '%s'." % channel,
+                        "channels": [c["name"] for c in chans]}
+            target = pick[0]
+        if target >= len(chans):
+            return {"ok": False, "error": "There is no channel %d." % target}
+        ctype = chans[target]["type"]
+        if ctype not in (CT_SAMPLER, CT_AUDIOCLIP, None) and not replace_instrument:
+            return {"ok": False, "error": "Channel '%s' holds an instrument plugin, not a sampler. "
+                                          "Pick a sampler channel, or set replace_instrument "
+                                          "to swap the instrument for this sample." % chans[target]["name"]}
         preview = safety.preview_write(tool="fl_load_sound", command=protocol.CMD_BROWSER,
                                        params={"op": "load", "channel": target, "sound": path})
         if preview is not None:
@@ -401,15 +426,6 @@ def register(mcp: FastMCP) -> None:
         if not out.get("ok"):
             return out
         ch = target
-        if ch < 0:
-            if (out.get("channels_after") or 0) > (out.get("channels_before") or 0):
-                ch = int(out["channels_after"]) - 1
-                out["result"] = "new_channel"
-            else:
-                out["ok"] = False
-                out["result"] = "no_new_channel"
-                out["hint"] = "FL didn't add a channel. Name a channel to load into instead."
-                return out
         if name:
             out["rename"] = _write(protocol.CMD_CHANNEL_SET_NAME, {"channel": ch, "name": name})
         if mixer_track:

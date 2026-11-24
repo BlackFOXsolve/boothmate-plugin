@@ -130,3 +130,23 @@ def test_load_into_channel_walks_opens_and_closes(monkeypatch, tmp_path: Path):
     res = sounds.load_into_channel(str(kicks / "707 Kick.wav"), 3, [root])
     assert res["ok"] is True and res["sound"] == "707 Kick.wav"
     assert state["open"] == {"Drums"}
+
+
+def test_load_brings_fl_to_front_when_browser_has_no_focus(monkeypatch, tmp_path: Path):
+    root = tmp_path / "Patches"
+    (root / "Packs").mkdir(parents=True)
+    f = root / "Packs" / "a.wav"
+    f.write_bytes(b"x")
+    calls = {"front": 0, "home": 0}
+    monkeypatch.setattr(sounds, "bring_fl_to_front", lambda: calls.__setitem__("front", calls["front"] + 1) or True)
+    monkeypatch.setattr(sounds.time, "sleep", lambda s: None)
+
+    def call(op, **p):
+        if op == "home":
+            calls["home"] += 1
+            return {"focused": calls["front"] > 0}
+        return {"found": False}
+    monkeypatch.setattr(sounds, "_call", call)
+    res = sounds.load_into_channel(str(f), 0, [root])
+    assert calls == {"front": 1, "home": 2}
+    assert "Couldn't find the folder" in res["error"]
