@@ -52,7 +52,7 @@ How Alan tests: open the preview /test.html, paste a link, wait 1-4 minutes, loa
 Next: run u1Gte5Jt-P4 on the preview and compare it with the live preview's reading (Chicago drill 133). If the tempo still disagrees, consider a second, cheap tempo-only Gemini pass.
 
 ### 2026-11-24 second run (reliability pass), PR #1
-Items 1-5 were already done by the first run, so this run hardened what Alan will hit in the morning. Same preview URL: https://deploy-preview-1--boothmate-d4e6.netlify.app/test.html. (Netlify "canceled" the preview for the log-only commit cec89dc because site/ hadn't changed. That's normal; the preview kept serving 4471a6e. This run's commit fecb5e8 changes site/, so a fresh preview builds.)
+Items 1-5 were already done by the first run, so this run hardened what Alan will hit in the morning. Same preview URL: https://deploy-preview-1--boothmate-d4e6.netlify.app/test.html. (Netlify "canceled" the preview for the log-only commit cec89dc because site/ hadn't changed. That's normal; the preview kept serving 4471a6e. This run's commit fecb5e8 changed site/; Netlify reported "Deploy Preview ready!" for it at 11:45 UTC.)
 
 Done
 1. **Tempo slips are fixed in code, not just in the prompt.** `reconcileTempo()` in `lib/prompt.mjs`: if the BPM falls outside the chosen BoothMate genre's range (drill 125-155, trap 125-175, boom bap 75-100, lo-fi 65-95, R&B 55-110, jersey club 125-150) but half or double falls inside, it uses that value. It also adds a sentence to `notes` ("Tempo corrected from 67 to 134 BPM... if it feels wrong, try 67") and lowers `bpm_confidence` from high to medium. Every prompt now uses the same BPM, not only the first.
