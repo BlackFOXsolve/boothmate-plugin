@@ -16,3 +16,37 @@ Alan's test tonight: the landing-page prompt set (180 BPM, D minor pad/bell/half
 - Append to this log at the end of every run: what you tried, measured results, what's next.
 
 ## Log
+
+### 2026-11-24 run (owner test mode + accuracy), PR #1
+**Preview to test:** https://deploy-preview-1--boothmate-d4e6.netlify.app/test.html (Netlify reported "Deploy Preview ready" for commit 4471a6e). PR: https://github.com/BlackFOXsolve/boothmate-plugin/pull/1. Don't merge before Alan reviews; main auto-deploys.
+
+Done
+1. Test mode: `site/public/test.html` plus `/api/test-breakdown` (POST {url} starts a run, GET ?id= polls it) and `run-test-breakdown-background.mjs`.
+   - Runs the same prompt, schema and 10-minute window as the paid breakdown, with no Stripe and regardless of BEAT_BREAKDOWN_OPEN.
+   - Allowed only when the Netlify deploy context (`context.deploy.context`, falling back to `process.env.CONTEXT`) is deploy-preview or branch-deploy, or when `key` matches BB_TEST_KEY. Otherwise it returns 404.
+   - Stores runs in the Blobs store `beat-breakdown-tests`, capped at 25 per UTC day; a run that fails to start doesn't count.
+   - The worker is called on the request's own origin, because on a preview `process.env.URL` is production.
+   - The page shows the embedded video, progress with an elapsed timer, the shared result view, Copy all prompts, the raw JSON, and the technical error detail (owner only).
+2. Accuracy (`lib/prompt.mjs`):
+   - Order of work: style from the drums, then tempo with a required half/double-time check against genre tempo ranges, then key + mode.
+   - Each of style, tempo and key gets a confidence and a "why".
+   - New fields: `tempo_check`, `boothmate_genre`/`boothmate_mood` enums, and `sound_setup` (stock channel loads with channel names and editions, mixer chains, velocity/glide tips).
+   - The video title is passed as a hint. All old fields are kept, so old results still render.
+3. Prompts: a compact BoothMate capability list (from SKILL.md and tools/beginner.py: genres, moods, channel-name matching, the CANNOT list) is now in the prompt, which asks for 6-9 ordered prompts.
+   - `tidyBreakdown()` makes the tempo prompt come first and match the reported BPM, and moves load/effect/export prompts to `sound_setup.manual_steps`.
+   - Used by both the paid and test runs.
+4. PR #1 is open, and the Netlify deploy preview built successfully.
+5. `sample-breakdown.json` is now marked illustrative and reconciled to Chicago drill, 133 BPM, D minor, with a sound setup and drill prompts.
+   - `gemini.mjs`: clear errors when Gemini's answer is cut off, empty or blocked.
+   - The result renderer is shared (`breakdown-view.js`, `breakdown.css`).
+
+Tests: `cd site && npm test` 16/16 pass (7 new). `python -m pytest -q`: 378 passed, 13 skipped. This sandbox needed `pytest-asyncio` installed; there are no Python changes. Both pages were rendered in headless Chromium against a mock API at 1280 px and 390 px: no JS errors and no sideways scrolling.
+
+NOT verified: no live Gemini call. The sandbox can't reach Google or netlify.app, so prompt quality is untested on real audio. Also unconfirmed:
+- that Gemini (through the Netlify AI Gateway) accepts the bigger schema, which includes `propertyOrdering`;
+- that GEMINI_API_KEY applies to the Deploy Preview context. test.html warns if it doesn't.
+If a run fails with "incomplete", open the technical detail; MAX_TOKENS would mean the schema needs trimming.
+
+How Alan tests: open the preview /test.html, paste a link, wait 1-4 minutes, load the sounds in step 1, run the step 2 prompts in FL Studio, then A/B against the embedded video.
+
+Next: run u1Gte5Jt-P4 on the preview and compare it with the live preview's reading (Chicago drill 133). If the tempo still disagrees, consider a second, cheap tempo-only Gemini pass.
