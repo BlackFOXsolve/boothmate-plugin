@@ -3,7 +3,10 @@ export async function geminiVideo({ url, prompt, schema, seconds }) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set");
   const model = process.env.GEMINI_MODEL || "gemini-4-hydrogen";
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+  // Netlify's AI Gateway injects GEMINI_API_KEY + GOOGLE_GEMINI_BASE_URL when no key of our own is set;
+  // that key only works against the gateway URL. With our own key, the base URL isn't injected and we call Google.
+  const base = (process.env.GOOGLE_GEMINI_BASE_URL || "https://generativelanguage.googleapis.com").replace(/\/+$/, "");
+  const r = await fetch(`${base}/v1beta/models/${model}:generateContent`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
