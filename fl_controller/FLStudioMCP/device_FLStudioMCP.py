@@ -1572,6 +1572,99 @@ def _h_playlist_track_list(p):
     return _paginate(n, p.get("start", 0), entry, "tracks")
 
 
+
+# -- sound loading lab (0.1.5): names, mixer links, browser ------------------
+
+def _h_channel_set_name(p):
+    i = int(p["channel"])
+    if i < 0 or i >= channels.channelCount():
+        raise _ClientError("No channel %d" % i)
+    channels.setChannelName(i, str(p.get("name", ""))[:64])
+    return {"ok": True, "channel": i, "name": channels.getChannelName(i)}
+
+
+def _h_channel_link_mixer(p):
+    """Link one channel to one mixer insert, the way Ctrl+L does."""
+    ch = int(p["channel"])
+    tr = int(p["track"])
+    if ch < 0 or ch >= channels.channelCount():
+        raise _ClientError("No channel %d" % ch)
+    before = channels.getTargetFxTrack(ch)
+    tried = []
+    if hasattr(channels, "setTargetFxTrack"):
+        try:
+            channels.setTargetFxTrack(ch, tr)
+            tried.append("channels.setTargetFxTrack")
+        except Exception as e:
+            tried.append("setTargetFxTrack failed: %s" % e)
+    if channels.getTargetFxTrack(ch) != tr:
+        try:
+            channels.selectOneChannel(ch)
+            mixer.setTrackNumber(tr, getattr(midi, "curfxScrollToMakeVisible", 1))
+            mixer.linkTrackToChannel(getattr(midi, "ROUTE_ToThis", 0))
+            tried.append("mixer.linkTrackToChannel")
+        except Exception as e:
+            tried.append("linkTrackToChannel failed: %s" % e)
+    after = channels.getTargetFxTrack(ch)
+    return {"ok": after == tr, "channel": ch, "before": before, "after": after,
+            "track_name": mixer.getTrackName(after), "tried": tried}
+
+
+def _browser_state():
+    out = {}
+    for key, fn in (("caption", "getFocusedNodeCaption"), ("file_type", "getFocusedNodeFileType")):
+        try:
+            out[key] = getattr(ui, fn)()
+        except Exception as e:
+            out[key + "_error"] = str(e)
+    try:
+        out["channel_count"] = channels.channelCount()
+        out["selected_channel"] = channels.selectedChannel()
+        out["selected_name"] = channels.getChannelName(channels.selectedChannel())
+    except Exception as e:
+        out["channel_error"] = str(e)
+    try:
+        out["focused_window"] = ui.getFocusedFormID()
+    except Exception:
+        pass
+    return out
+
+
+def _h_browser(p):
+    """Experimental: drive FL's Browser (as hardware like the Akai Fire does)."""
+    op = str(p.get("op", "state"))
+    shift = bool(p.get("shift", False))
+    res = {"op": op}
+    try:
+        if op == "show":
+            ui.showWindow(getattr(midi, "widBrowser", 4))
+            ui.setFocused(getattr(midi, "widBrowser", 4))
+        elif op in ("next", "prev"):
+            code = 41 if op == "next" else 40
+            fn = getattr(ui, "navigateBrowser", None) or getattr(ui, "navigateBrowserMenu")
+            res["moved_to"] = fn(code, shift)
+        elif op in ("next_menu", "prev_menu"):
+            res["moved_to"] = ui.navigateBrowserMenu(41 if op == "next_menu" else 40, shift)
+        elif op in ("tab_right", "tab_left", "tab_first"):
+            code = {"tab_right": 43, "tab_left": 42, "tab_first": 0}[op]
+            res["tab"] = ui.navigateBrowserTabs(code)
+        elif op == "toggle":
+            ui.toggleBrowserNode(int(p.get("value", -1)))
+        elif op == "preview":
+            ui.previewBrowserMenuItem()
+        elif op == "select":
+            ui.selectBrowserMenuItem()
+        elif op == "enter":
+            ui.enter()
+        elif op != "state":
+            raise _ClientError("Unknown browser op %s" % op)
+    except _ClientError:
+        raise
+    except Exception as e:
+        res["error"] = "%s: %s" % (type(e).__name__, e)
+    res.update(_browser_state())
+    return res
+
 _HANDLERS = {
     'playlist_track_list': _h_playlist_track_list,
     'playlist_get_track': _h_playlist_get_track,
@@ -1632,4 +1725,7 @@ _HANDLERS = {
     "pattern_select": _h_pattern_select,
     "pattern_rename": _h_pattern_rename,
     "pattern_get_length": _h_pattern_get_length,
+    "channel_set_name": _h_channel_set_name,
+    "channel_link_mixer": _h_channel_link_mixer,
+    "browser": _h_browser,
 }

@@ -54,6 +54,7 @@ from .tools import transport as transport_tools
 
 from .tools import capabilities as capabilities_tools
 from .tools import loader as loader_tools
+from .tools import sounds as sounds_tools
 from .tools import playlist as playlist_tools
 from .tools import vst as vst_tools
 
@@ -117,6 +118,7 @@ def build_server() -> FastMCP:
     mix_doctor_tools.register(mcp)  # Mix Doctor: diagnose whole mix + gated apply-fixes
     steps_tools.register(mcp)       # Step sequencer: read/write drum steps (safety layer)
     drums_tools.register(mcp)       # Drums to MIDI, optionally into the step sequencer
+    sounds_tools.register(mcp)      # 0.1.5 lab: find + load stock sounds, rename, link to mixer, browser
     pattern_tools.register(mcp)     # E-2: pattern list/select/rename/get_length
     capabilities_tools.register(mcp)
     loader_tools.register(mcp)
