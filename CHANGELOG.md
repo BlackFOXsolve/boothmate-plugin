@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### BoothMate 0.1.6 (Claude desktop extension)
+- **Loads sounds with no clicks:** `fl_load_sound` walks FL Studio's Browser to a stock sound (by path or words like "trap clap"), loads it into a named channel, renames it and can route it to a mixer track. Brings FL to the front first, because FL only lets its Browser take focus while FL is the active app. Refuses to load unless the Browser is on the exact sound, and won't replace an instrument plugin unless asked.
+- **Starter kits:** `fl_load_kit` with dark_trap, drill, boom_bap or rnb fills the Kick, Snare, Hi Hat, Open Hat, 808 and Perc channels with matched stock sounds and renames them for `make_beat`. Claude loads a kit before the first beat.
+- Removed the 0.1.5 lab route that opened files through the OS (FL opened them as a new project).
+- FL can't add channels from a script; BoothMate fills existing ones and says so when a slot is missing.
+
 ### Version 2 (will be released as 2.0.0)
 - **One-command setup:** `fl-studio-mcp setup` installs the controller script (now shipped inside the package), waits for FL Studio and reports READY only after a real ping. `fl-studio-mcp doctor` prints one status code and the next step; `fl-studio-mcp connect` prints the client entry.
 - **macOS / Linux need no MIDI setup:** the server creates virtual ports with one shared name and FL Studio links, pairs and enables them by itself. On by default; an existing IAC or loopMIDI pair is used first; `FLSTUDIO_MCP_VIRTUAL_PORTS=0` turns it off. Builds on #11 by David Bertram.

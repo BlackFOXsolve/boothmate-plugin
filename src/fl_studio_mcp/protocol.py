@@ -194,6 +194,9 @@ CMD_PLUGIN_PRESET = "plugin_preset"                    # getPresetCount/next/pre
 # (op "step", "pat" and "jump" are READ-ONLY probes: step-grid/focus,
 #  pattern metadata, and jumpToPattern bounds; none of them mutate the project)
 CMD_API_PROBE = "api_probe"
+CMD_CHANNEL_SET_NAME = "channel_set_name"
+CMD_CHANNEL_LINK_MIXER = "channel_link_mixer"
+CMD_BROWSER = "browser"
 
 # Arrangement primitives (Slice 1) -- pattern create/clone + section markers
 CMD_ARRANGE_NEW_PATTERN = "arrange_new_pattern"        # find empty + jumpTo + name

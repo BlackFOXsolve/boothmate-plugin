@@ -54,6 +54,7 @@ from .tools import transport as transport_tools
 
 from .tools import capabilities as capabilities_tools
 from .tools import loader as loader_tools
+from .tools import sounds as sounds_tools
 from .tools import playlist as playlist_tools
 from .tools import vst as vst_tools
 
@@ -68,7 +69,9 @@ BEGINNERS FIRST
   Most users are new producers and rappers. Start with studio_check, talk in
   plain language, and prefer the one-call tools: make_beat, write_drums,
   write_chords, write_808, beat_theory, and booth (run it back / from the
-  top / punch in). Reach for the low-level fl_* tools only when those can't
+  top / punch in). Before the first beat, call fl_load_kit with the style
+  (dark_trap, drill, boom_bap, rnb) so the drums and 808 use sounds that fit;
+  swap single sounds with fl_find_sounds + fl_load_sound. Reach for the low-level fl_* tools only when those can't
   do what was asked. Tell the user what you're about to make before writing,
   and remind them "undo" works (fl_rollback_last_change).
 
@@ -81,7 +84,9 @@ CONNECTION
 LIMITS YOU SHOULD KNOW ABOUT (these are FL API limitations, not server bugs)
   - Cannot load new VST/AU plugin instances. You can only control plugins
     that already exist in the project.
-  - Cannot load audio files or render audio.
+  - Can load FL Studio's own stock samples into existing sampler channels
+    (fl_load_sound, fl_load_kit), but cannot add new channels, load the
+    user's own audio files, or render audio.
   - Patterns: fl_arrange_new_pattern names and selects the next EMPTY
     pattern, fl_arrange_clone_pattern copies one. Patterns cannot be deleted.
   - FL refuses every write while a dialog is open (the welcome screen
@@ -117,6 +122,7 @@ def build_server() -> FastMCP:
     mix_doctor_tools.register(mcp)  # Mix Doctor: diagnose whole mix + gated apply-fixes
     steps_tools.register(mcp)       # Step sequencer: read/write drum steps (safety layer)
     drums_tools.register(mcp)       # Drums to MIDI, optionally into the step sequencer
+    sounds_tools.register(mcp)      # 0.1.6: load stock sounds + starter kits via FL's Browser
     pattern_tools.register(mcp)     # E-2: pattern list/select/rename/get_length
     capabilities_tools.register(mcp)
     loader_tools.register(mcp)

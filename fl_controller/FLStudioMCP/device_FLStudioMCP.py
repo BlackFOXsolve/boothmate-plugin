@@ -1572,6 +1572,238 @@ def _h_playlist_track_list(p):
     return _paginate(n, p.get("start", 0), entry, "tracks")
 
 
+
+# -- sound loading (0.1.6): names, mixer links, browser ------------------
+
+def _h_channel_set_name(p):
+    i = int(p["channel"])
+    if i < 0 or i >= channels.channelCount():
+        raise _ClientError("No channel %d" % i)
+    channels.setChannelName(i, str(p.get("name", ""))[:64])
+    return {"ok": True, "channel": i, "name": channels.getChannelName(i)}
+
+
+def _h_channel_link_mixer(p):
+    """Link one channel to one mixer insert, the way Ctrl+L does."""
+    ch = int(p["channel"])
+    tr = int(p["track"])
+    if ch < 0 or ch >= channels.channelCount():
+        raise _ClientError("No channel %d" % ch)
+    before = channels.getTargetFxTrack(ch)
+    tried = []
+    if hasattr(channels, "setTargetFxTrack"):
+        try:
+            channels.setTargetFxTrack(ch, tr)
+            tried.append("channels.setTargetFxTrack")
+        except Exception as e:
+            tried.append("setTargetFxTrack failed: %s" % e)
+    if channels.getTargetFxTrack(ch) != tr:
+        try:
+            channels.selectOneChannel(ch)
+            mixer.setTrackNumber(tr, getattr(midi, "curfxScrollToMakeVisible", 1))
+            mixer.linkTrackToChannel(getattr(midi, "ROUTE_ToThis", 0))
+            tried.append("mixer.linkTrackToChannel")
+        except Exception as e:
+            tried.append("linkTrackToChannel failed: %s" % e)
+    after = channels.getTargetFxTrack(ch)
+    return {"ok": after == tr, "channel": ch, "before": before, "after": after,
+            "track_name": mixer.getTrackName(after), "tried": tried}
+
+
+def _browser_state():
+    out = {}
+    for key, fn in (("caption", "getFocusedNodeCaption"), ("file_type", "getFocusedNodeFileType")):
+        try:
+            out[key] = getattr(ui, fn)()
+        except Exception as e:
+            out[key + "_error"] = str(e)
+    try:
+        out["channel_count"] = channels.channelCount()
+        out["selected_channel"] = channels.selectedChannel()
+        out["selected_name"] = channels.getChannelName(channels.selectedChannel())
+    except Exception as e:
+        out["channel_error"] = str(e)
+    try:
+        out["focused_window"] = ui.getFocusedFormID()
+    except Exception:
+        pass
+    return out
+
+
+_WID_BROWSER = getattr(midi, "widBrowser", 4)
+
+
+def _caption():
+    try:
+        return ui.getFocusedNodeCaption()
+    except Exception:
+        return None
+
+
+def _browser_focus():
+    """Show the Browser and give it keyboard focus. True if it has focus."""
+    try:
+        ui.showWindow(_WID_BROWSER)
+        ui.setFocused(_WID_BROWSER)
+    except Exception:
+        pass
+    try:
+        return ui.getFocusedFormID() == _WID_BROWSER
+    except Exception:
+        return False
+
+
+def _browser_step(direction, shift=False):
+    return ui.navigateBrowserMenu(41 if direction > 0 else 40, shift)
+
+
+def _browser_home(limit=3000):
+    """Walk up to the top of the Browser list (stops when nothing moves)."""
+    last, same, steps = _caption(), 0, 0
+    while steps < limit:
+        _browser_step(-1)
+        steps += 1
+        cap = _caption()
+        if cap == last:
+            same += 1
+            if same >= 2:
+                break
+        else:
+            same = 0
+        last = cap
+    return steps
+
+
+def _browser_find(name, direction=1, limit=800):
+    """Move until the highlighted item's caption is `name` (case-insensitive).
+    Checks the current item first. Stops at the end of the list."""
+    want = str(name).strip().lower()
+    cap = _caption()
+    if cap is not None and cap.strip().lower() == want:
+        return True, 0
+    last, same, steps = cap, 0, 0
+    while steps < limit:
+        _browser_step(direction)
+        steps += 1
+        cap = _caption()
+        if cap is not None and cap.strip().lower() == want:
+            return True, steps
+        if cap == last:
+            same += 1
+            if same >= 2:
+                break
+        else:
+            same = 0
+        last = cap
+    return False, steps
+
+
+def _browser_reset():
+    """Unstick the Browser after a load: FL keeps it on the loaded item and
+    ignores up/down until the tab changes (verified FL 2026.1.7)."""
+    try:
+        ui.navigateBrowserTabs(43)
+        ui.navigateBrowserTabs(42)
+    except Exception:
+        pass
+
+
+def _channel_info(i):
+    out = {"i": i}
+    try:
+        out["name"] = channels.getChannelName(i)
+    except Exception:
+        pass
+    try:
+        out["type"] = channels.getChannelType(i)
+    except Exception:
+        pass
+    return out
+
+
+def _h_browser(p):
+    """Drive FL's Browser (as hardware like the Akai Fire does).
+
+    Single steps: state, show, next, prev, next_menu, prev_menu, tab_right,
+    tab_left, tab_first, toggle (value -1/0/1), preview, select, enter.
+    Compound (one round trip): home, find (name, direction), reset,
+    load (channel >= 0 = load into that channel; -1 = nothing selected,
+    to see if FL makes a new channel), channel_types."""
+    op = str(p.get("op", "state"))
+    shift = bool(p.get("shift", False))
+    res = {"op": op}
+    try:
+        if op == "show":
+            res["focused"] = _browser_focus()
+        elif op in ("next", "prev"):
+            code = 41 if op == "next" else 40
+            fn = getattr(ui, "navigateBrowser", None) or getattr(ui, "navigateBrowserMenu")
+            res["moved_to"] = fn(code, shift)
+        elif op in ("next_menu", "prev_menu"):
+            res["moved_to"] = _browser_step(1 if op == "next_menu" else -1, shift)
+        elif op in ("tab_right", "tab_left", "tab_first"):
+            code = {"tab_right": 43, "tab_left": 42, "tab_first": 0}[op]
+            res["tab"] = ui.navigateBrowserTabs(code)
+        elif op == "toggle":
+            ui.toggleBrowserNode(int(p.get("value", -1)))
+        elif op == "preview":
+            ui.previewBrowserMenuItem()
+        elif op == "select":
+            ui.selectBrowserMenuItem()
+        elif op == "enter":
+            ui.enter()
+        elif op == "home":
+            res["focused"] = _browser_focus()
+            res["steps"] = _browser_home(int(p.get("limit", 3000)))
+        elif op == "find":
+            res["focused"] = _browser_focus()
+            found, steps = _browser_find(p.get("name", ""), int(p.get("direction", 1)),
+                                         int(p.get("limit", 800)))
+            res["found"], res["steps"] = found, steps
+        elif op == "reset":
+            _browser_reset()
+            res["focused"] = _browser_focus()
+        elif op == "load":
+            ch = int(p.get("channel", -1))
+            want = str(p.get("expect", "")).strip().lower()
+            before = channels.channelCount()
+            if ch >= 0:
+                if ch >= before:
+                    raise _ClientError("No channel %d" % ch)
+                channels.selectOneChannel(ch)
+            else:
+                channels.deselectAll()
+            if not _browser_focus():
+                res["loaded"] = False
+                res["error"] = "Browser didn't take focus; nothing loaded."
+            elif want and (_caption() or "").strip().lower() != want:
+                res["loaded"] = False
+                res["error"] = "Highlighted item isn't %s; nothing loaded." % want
+            else:
+                ui.enter()
+                res["loaded"] = True
+            after = channels.channelCount()
+            res["channels_before"], res["channels_after"] = before, after
+            target = ch if ch >= 0 else (after - 1 if after > before else -1)
+            if target >= 0:
+                res["channel"] = _channel_info(target)
+            _browser_reset()
+        elif op == "channel_types":
+            start = max(0, int(p.get("start", 0)))
+            n = channels.channelCount()
+            res["total"] = n
+            res["types"] = [channels.getChannelType(i) for i in range(start, min(n, start + 60))]
+            res["start"] = start
+            return res
+        elif op != "state":
+            raise _ClientError("Unknown browser op %s" % op)
+    except _ClientError:
+        raise
+    except Exception as e:
+        res["error"] = "%s: %s" % (type(e).__name__, e)
+    res.update(_browser_state())
+    return res
+
 _HANDLERS = {
     'playlist_track_list': _h_playlist_track_list,
     'playlist_get_track': _h_playlist_get_track,
@@ -1632,4 +1864,7 @@ _HANDLERS = {
     "pattern_select": _h_pattern_select,
     "pattern_rename": _h_pattern_rename,
     "pattern_get_length": _h_pattern_get_length,
+    "channel_set_name": _h_channel_set_name,
+    "channel_link_mixer": _h_channel_link_mixer,
+    "browser": _h_browser,
 }
