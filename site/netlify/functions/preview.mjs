@@ -16,7 +16,7 @@ export default async (req, context) => {
     const rec = await db.get(`v:${id}`, { type: "json" });
     if (!rec) return json(200, { status: "not_started" });
     const stale = rec.status === "running" && Date.now() - rec.updated > STALE_MS;
-    return json(200, { status: stale ? "error" : rec.status, preview: rec.preview, video: rec.video, error: stale ? "The preview timed out. Try again." : rec.error });
+    return json(200, { status: stale ? "error" : rec.status, preview: rec.preview, video: rec.video, error: stale ? "The preview timed out. Try again." : rec.error, ...(new URL(req.url).searchParams.get("diag") === "1" ? { detail: rec.detail } : {}) });
   }
   if (req.method !== "POST") return json(405, { error: "Use GET or POST." });
   if (!process.env.GEMINI_API_KEY) return json(503, { error: "Free previews are switched off for a moment. Please try again soon." });

@@ -15,6 +15,6 @@ export default async (req) => {
     await db.setJSON(`v:${id}`, { ...rec, status: "done", preview, error: null, updated: Date.now() });
   } catch (e) {
     console.error("preview failed", id, e);
-    await db.setJSON(`v:${id}`, { ...rec, status: "error", error: friendly(e), updated: Date.now() });
+    await db.setJSON(`v:${id}`, { ...rec, status: "error", error: friendly(e), detail: String(e?.message || e).slice(0, 300), updated: Date.now() });
   }
 };
