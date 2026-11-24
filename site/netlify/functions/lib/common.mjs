@@ -56,11 +56,23 @@ export async function paidSession(sessionId) {
   if (s.payment_status !== "paid") return null;
   const yt = parseYouTube(s.metadata?.youtube_url);
   if (!yt) return null;
-  return { id: s.id, youtube: yt, title: s.metadata?.video_title || "", email: s.customer_details?.email || "" };
+  return { id: s.id, youtube: yt, title: s.metadata?.video_title || "", email: s.customer_details?.email || "", paymentIntent: s.payment_intent || null };
 }
 
 export const store = () => globalThis.__BB_STORE || getStore({ name: "beat-breakdowns", consistency: "strong" });
+export const previewStore = () => globalThis.__BB_PREVIEW_STORE || getStore({ name: "beat-previews", consistency: "strong" });
 
 export function siteUrl(req) {
   return process.env.URL || new URL(req.url).origin;
+}
+
+// Full refund of a Checkout Session's payment (used when a breakdown fails for good).
+export async function refundSession(paid, reason) {
+  if (!paid?.paymentIntent) throw new Error("No payment to refund");
+  return stripe("refunds", { method: "POST", form: {
+    payment_intent: typeof paid.paymentIntent === "string" ? paid.paymentIntent : paid.paymentIntent.id,
+    reason: "requested_by_customer",
+    "metadata[app]": "boothmate-beat-breakdown",
+    "metadata[why]": String(reason || "breakdown failed").slice(0, 400),
+  }});
 }

@@ -1,10 +1,12 @@
 // Background function (name ends in -background): Netlify answers 202 right away
 // and lets this run for up to 15 minutes. It re-checks the payment itself, so a
-// direct call without a paid session does nothing.
-import { paidSession, store } from "./lib/common.mjs";
+// direct call without a paid session does nothing. If the breakdown fails on
+// the customer's last allowed attempt, the payment is refunded automatically.
+import { paidSession, store, refundSession } from "./lib/common.mjs";
+import { geminiVideo, friendly } from "./lib/gemini.mjs";
 import { BREAKDOWN_PROMPT, BREAKDOWN_SCHEMA } from "./lib/prompt.mjs";
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-4-hydrogen";
+export const MAX_ATTEMPTS = 3;
 const MAX_SECONDS = Number(process.env.BREAKDOWN_MAX_SECONDS || 600); // analyse at most the first 10 minutes
 
 export default async (req) => {
@@ -15,41 +17,25 @@ export default async (req) => {
 
   const db = store();
   const rec = (await db.get(paid.id, { type: "json" })) || {};
-  if (rec.status === "done") return;
+  if (rec.status === "done" || rec.refunded) return;
   const save = (patch) => db.setJSON(paid.id, { ...rec, ...patch, updated: Date.now() });
 
   try {
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) throw new Error("GEMINI_API_KEY is not set");
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify({
-        contents: [{
-          role: "user",
-          parts: [
-            { file_data: { file_uri: paid.youtube.url, mime_type: "video/*" }, video_metadata: { end_offset: `${MAX_SECONDS}s` } },
-            { text: BREAKDOWN_PROMPT },
-          ],
-        }],
-        generationConfig: { responseMimeType: "application/json", responseSchema: BREAKDOWN_SCHEMA, temperature: 0.4 },
-      }),
-    });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j?.error?.message || `Gemini ${r.status}`);
-    const text = j?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
-    const result = JSON.parse(text);
+    const result = await geminiVideo({ url: paid.youtube.url, prompt: BREAKDOWN_PROMPT, schema: BREAKDOWN_SCHEMA, seconds: MAX_SECONDS });
     if (!result?.boothmate_prompts?.length) throw new Error("Empty breakdown");
     await save({ status: "done", result, error: null, finished: Date.now() });
   } catch (e) {
     console.error("breakdown failed", paid.id, e);
-    await save({ status: "error", error: friendly(e) });
+    const error = friendly(e);
+    if ((rec.attempts || 0) >= MAX_ATTEMPTS) {
+      try {
+        const refund = await refundSession(paid, error);
+        return await save({ status: "error", error, refunded: true, refundId: refund.id });
+      } catch (re) {
+        console.error("auto refund failed", paid.id, re);
+        return await save({ status: "error", error, refundFailed: true });
+      }
+    }
+    await save({ status: "error", error });
   }
 };
-
-function friendly(e) {
-  const m = String(e?.message || e);
-  if (/private|unavailable|not found|permission/i.test(m)) return "Gemini couldn't open this video. It may be private or blocked in some countries.";
-  if (/quota|rate|429|resource/i.test(m)) return "Our analyser is busy right now. Try again in a minute.";
-  return "Something went wrong while breaking down this beat. Try again.";
-}

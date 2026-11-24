@@ -77,3 +77,18 @@ export const BREAKDOWN_SCHEMA = {
   },
   required: ["style", "vibe", "bpm", "bpm_confidence", "key", "key_confidence", "drums", "bass_808", "melody", "arrangement", "mix_notes", "fl_studio_sounds", "boothmate_prompts", "notes"]
 };
+
+// Free teaser shown before payment: style, tempo and key from the first 90s.
+export const PREVIEW_PROMPT = `Listen to the first part of the attached YouTube video, a beat or type beat. In plain, exciting but honest language for a beginner producer, identify its style, tempo and key, and write a one-sentence hook describing the vibe. Do not describe the melody or drum pattern in detail. If it isn't music, say so in "hook" and set style to "not a beat".`;
+
+export const PREVIEW_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    style: { type: "STRING" },
+    bpm: { type: "NUMBER" },
+    key: { type: "STRING" },
+    mood: { type: "ARRAY", items: { type: "STRING" }, description: "Three mood words." },
+    hook: { type: "STRING", description: "One sentence on the vibe." }
+  },
+  required: ["style", "bpm", "key", "mood", "hook"]
+};

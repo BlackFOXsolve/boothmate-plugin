@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Refund policy · BoothMate Beat Breakdown</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--acc:#C6F432;--bg:#0E0E11;--muted:#B4B4BE;--dim:#8E8E99;--text:#ECECEF}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:17px/1.6 Inter,system-ui,sans-serif}
+a{color:var(--acc)}
+h1,h2,h3{font-family:'Space Grotesk',sans-serif;line-height:1.15;margin:0}
+.wrap{max-width:820px;margin:0 auto;padding:24px 24px 96px}
+header{display:flex;justify-content:space-between;align-items:center;padding-bottom:28px}
+.logo{display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font:700 22px 'Space Grotesk',sans-serif}
+.glass{background:linear-gradient(140deg,rgba(255,255,255,.12),rgba(255,255,255,.03) 45%,rgba(255,255,255,.06));-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.14);border-radius:22px;padding:26px;display:flex;flex-direction:column;gap:14px;margin-top:20px}
+.blob{position:fixed;border-radius:50%;filter:blur(80px);opacity:.22;pointer-events:none;z-index:-1}
+ul{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px}
+label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:15px}
+input,select,textarea{font:inherit;font-weight:400;color:var(--text);background:rgba(14,14,17,.6);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:12px 14px;min-height:48px;outline-color:var(--acc)}
+textarea{min-height:110px;resize:vertical}
+.check{flex-direction:row;align-items:flex-start;gap:10px;font-weight:400}
+.check input{min-height:auto;margin-top:5px}
+button{font:inherit;font-weight:600;font-size:17px;min-height:52px;padding:0 24px;border:0;border-radius:12px;background:var(--acc);color:var(--bg);cursor:pointer;align-self:flex-start}
+.hint{font-size:13px;color:var(--dim);font-weight:400}
+.hidden{position:absolute;left:-9999px}
+</style>
+</head>
+<body>
+<div class="blob" style="width:520px;height:520px;left:-10%;top:-8%;background:#5CC8FF"></div>
+<div class="blob" style="width:460px;height:460px;right:-8%;top:45%;background:#F5C542"></div>
+<div class="wrap">
+<header><a class="logo" href="/"><img src="/favicon.svg" width="28" height="28" alt="">BoothMate</a><a href="/#beat-breakdown" style="color:var(--muted);font-size:15px">Beat Breakdown</a></header>
+
+<h1 style="font-size:clamp(30px,4vw,42px)">Beat Breakdown refund policy</h1>
+<p style="color:var(--muted)">Last updated November 24, 2026. Beat Breakdown is sold by Wilderfold LLC. Payments are handled by Stripe.</p>
+
+<section class="glass">
+<h2>Automatic refunds</h2>
+<p style="margin:0">If we can't complete your breakdown (for example, the video can't be opened or our analyser fails three times), we refund your full payment automatically. You don't need to do anything; the results page tells you when it's done. Refunds usually show on your card in 5 to 10 business days.</p>
+</section>
+
+<section class="glass">
+<h2>Delivered breakdowns</h2>
+<p style="margin:0">A breakdown is a digital product delivered as soon as it appears on your results page. Delivered breakdowns are final and aren't refunded for a change of mind, because the analysis has already been run and paid for on our side. We do review requests when something actually went wrong:</p>
+<ul>
+<li>You were charged more than once for the same breakdown.</li>
+<li>The results are for a different video than the one you paid for.</li>
+<li>The results page is empty, broken, or clearly not about music.</li>
+<li>You paid but never received a results page.</li>
+</ul>
+<p style="margin:0">Results are estimates of what the analyser hears; a tempo or key that's slightly different from what you expected isn't a fault on its own. Send a request within 14 days of purchase. We review every request against this policy and reply by email.</p>
+</section>
+
+<section class="glass" id="request">
+<h2>Request a refund</h2>
+<p class="hint" style="margin:0">Please read the policy above first. The more detail you give, the faster we can look into it.</p>
+<form name="refund-request" method="POST" action="/refund-received.html" data-netlify="true" netlify-honeypot="company" style="display:flex;flex-direction:column;gap:16px">
+<input type="hidden" name="form-name" value="refund-request">
+<p class="hidden"><label>Leave this empty <input name="company" tabindex="-1" autocomplete="off"></label></p>
+<label>Email you used at checkout<input type="email" name="email" required autocomplete="email"></label>
+<label>Order reference<input name="order" id="order" placeholder="Filled in for you from your results page" required><span class="hint">Starts with cs_. It's in your results page link, or ask us if you can't find it.</span></label>
+<label>YouTube link you broke down<input type="url" name="video" id="video" required></label>
+<label>What happened?
+<select name="reason" required>
+<option value="">Choose one</option>
+<option>Charged more than once</option>
+<option>Results are for a different video</option>
+<option>Results page is empty or broken</option>
+<option>Paid but never got a results page</option>
+<option>Something else</option>
+</select></label>
+<label>Tell us what went wrong<textarea name="details" required placeholder="What did you expect, and what did you get?"></textarea></label>
+<label>Any error messages you saw<textarea name="errors" placeholder="Copy any error text, or describe what the page showed"></textarea></label>
+<label>Device and browser<input name="device" id="device" placeholder="e.g. iPhone, Safari"></label>
+<label>Anything else that would help<textarea name="extra"></textarea></label>
+<label class="check"><input type="checkbox" name="read_policy" value="yes" required> I've read the refund policy above and my request fits one of the cases it covers.</label>
+<button type="submit">Submit refund request</button>
+</form>
+</section>
+</div>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search);
+  if (q.get("session_id")) document.getElementById("order").value = q.get("session_id");
+  if (q.get("video")) document.getElementById("video").value = q.get("video");
+  document.getElementById("device").value = navigator.userAgent.slice(0, 180);
+})();
+</script>
+</body>
+</html>

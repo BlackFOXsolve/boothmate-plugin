@@ -67,7 +67,7 @@ footer{margin-top:40px;font-size:13px;color:var(--dim)}
 <a href="/#beat-breakdown" class="muted" style="font-size:15px">Break down another beat</a>
 </header>
 <main id="main" aria-live="polite"></main>
-<footer>Beat Breakdown describes a beat's style so you can make your own. It never gives you the original melody, samples or drum pattern; don't release a near-copy of someone else's work. Results are estimates. Questions or refunds: <a href="mailto:contact@blackfoxsolve.com">contact@blackfoxsolve.com</a>. Not affiliated with YouTube or the producers whose beats are analysed.</footer>
+<footer>Beat Breakdown describes a beat's style so you can make your own. It never gives you the original melody, samples or drum pattern; don't release a near-copy of someone else's work. Results are estimates. If a breakdown can't be completed, you're refunded automatically. <a href="/refund.html" id="refundLink">Refund policy</a>. Not affiliated with YouTube or the producers whose beats are analysed.</footer>
 </div>
 <script>
 (function () {
@@ -84,14 +84,19 @@ footer{margin-top:40px;font-size:13px;color:var(--dim)}
     return '<div class="video in"><img src="https://img.youtube.com/vi/' + esc(v.id) + '/hqdefault.jpg" alt=""><div><div class="label">' + (sample ? "Sample breakdown" : "Your breakdown") + '</div><h1 style="font-size:clamp(24px,3.4vw,34px)">' + esc(v.title || "Your beat") + '</h1><a href="' + esc(v.url) + '" target="_blank" rel="noopener" style="font-size:14px">Open on YouTube &#8599;</a></div></div>';
   }
   function show(html) { main.innerHTML = html; }
+  function refundUrl(v) { return "/refund.html?session_id=" + encodeURIComponent(sid || "") + (v && v.url ? "&video=" + encodeURIComponent(v.url) : "") + "#request"; }
 
   var steps = ["Watching the video", "Listening for tempo and key", "Mapping the drums and 808", "Studying the melody and sounds", "Writing your BoothMate prompts"];
   function waiting(v) {
     var step = steps[Math.min(steps.length - 1, Math.floor(polls / 3))];
     show(videoBlock(v) + '<section class="glass wait in" style="margin-top:28px"><div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><h2>' + esc(step) + '…</h2><p class="muted" style="margin:0;max-width:460px">This usually takes about a minute. Keep this page open; you can also bookmark it and come back, your breakdown stays here.</p></section>');
   }
-  function failed(v, msg, canRetry) {
-    show(videoBlock(v) + '<section class="glass card err in" style="margin-top:28px"><h2>We hit a snag</h2><p class="muted" style="margin:0">' + esc(msg || "Something went wrong.") + '</p>' + (canRetry ? '<div><button class="btn btn-p" id="retry">Try again</button></div>' : '<p style="margin:0">Email <a href="mailto:contact@blackfoxsolve.com">contact@blackfoxsolve.com</a> with your receipt and we\'ll refund you.</p>') + '</section>');
+  function failed(v, msg, canRetry, refunded, refundFailed) {
+    var after = canRetry ? '<div><button class="btn btn-p" id="retry">Try again</button></div>'
+      : refunded ? '<p style="margin:0"><b>We\'ve refunded your payment in full.</b> It usually shows on your card in 5 to 10 business days. Sorry this one didn\'t work out; you\'re welcome to try a different link.</p>'
+      : refundFailed ? '<p style="margin:0">We couldn\'t process your automatic refund. <a href="' + refundUrl(v) + '">Send us a refund request</a> and we\'ll sort it out.</p>'
+      : '<p style="margin:0">If you were charged and didn\'t get a breakdown, <a href="' + refundUrl(v) + '">send us a refund request</a>.</p>';
+    show(videoBlock(v) + '<section class="glass card err in" style="margin-top:28px"><h2>We hit a snag</h2><p class="muted" style="margin:0">' + esc(msg || "Something went wrong.") + '</p>' + after + '</section>');
     var b = document.getElementById("retry");
     if (b) b.onclick = function () { start(); };
   }
@@ -127,7 +132,7 @@ footer{margin-top:40px;font-size:13px;color:var(--dim)}
   function handle(j) {
     if (j.status === "done" && j.result) return result(j.video, j.result);
     if (j.status === "unpaid") return failed(null, "We couldn't find a completed payment for this page. If you were charged, email us your receipt.", false);
-    if (j.status === "error") return failed(j.video, j.error, j.canRetry !== false);
+    if (j.status === "error") return failed(j.video, j.error, j.canRetry !== false && !j.refunded, j.refunded, j.refundFailed);
     if (j.status === "not_started" && !started) return start();
     waiting(j.video);
     polls++;
@@ -145,6 +150,7 @@ footer{margin-top:40px;font-size:13px;color:var(--dim)}
       .then(function (j) { if (j.status === "done" || j.status === "error" || j.status === "unpaid") handle(j); else { waiting(j.video); setTimeout(poll, 4000); } }, function () { setTimeout(poll, 4000); });
   }
 
+  if (sid) { var rl = document.getElementById("refundLink"); if (rl) rl.href = refundUrl(null); }
   if (sample) fetch("/sample-breakdown.json").then(function (r) { return r.json(); }).then(handle);
   else if (sid) poll();
   else failed(null, "This page needs the link from your checkout. Paste a beat on the BoothMate homepage to start one.", false);

@@ -22,13 +22,14 @@ export default async (req) => {
   if (req.method === "GET") {
     if (!rec) return json(200, { ...base, status: "not_started" });
     const stale = rec.status === "running" && Date.now() - (rec.updated || 0) > STALE_MS;
-    return json(200, { ...base, status: stale ? "error" : rec.status, result: rec.result, error: stale ? "The analysis timed out." : rec.error, attempts: rec.attempts || 0, canRetry: (rec.attempts || 0) < MAX_ATTEMPTS });
+    return json(200, { ...base, status: stale ? "error" : rec.status, result: rec.result, error: stale ? "The analysis timed out." : rec.error, attempts: rec.attempts || 0, canRetry: !rec.refunded && (rec.attempts || 0) < MAX_ATTEMPTS, refunded: !!rec.refunded, refundFailed: !!rec.refundFailed });
   }
 
   if (req.method !== "POST") return json(405, { error: "Use GET or POST." });
   if (rec?.status === "done") return json(200, { ...base, status: "done", result: rec.result });
   if (rec?.status === "running" && Date.now() - (rec.updated || 0) < STALE_MS) return json(202, { ...base, status: "running" });
-  if ((rec?.attempts || 0) >= MAX_ATTEMPTS) return json(429, { ...base, status: "error", error: "We tried this video three times and couldn't break it down. Email contact@blackfoxsolve.com with your receipt for a refund." });
+  if (rec?.refunded) return json(200, { ...base, status: "error", refunded: true, canRetry: false, error: rec.error });
+  if ((rec?.attempts || 0) >= MAX_ATTEMPTS) return json(429, { ...base, status: "error", canRetry: false, refunded: !!rec.refunded, refundFailed: !!rec.refundFailed, error: "We tried this video three times and couldn't break it down." });
 
   await db.setJSON(paid.id, { status: "running", attempts: (rec?.attempts || 0) + 1, updated: Date.now(), video: base.video });
   // Background function: returns 202 at once and keeps running up to 15 minutes.
