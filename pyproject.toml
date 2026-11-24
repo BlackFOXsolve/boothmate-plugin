@@ -9,7 +9,7 @@ description = "BoothMate: make beats and run recording sessions in FL Studio by 
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
-    { name = "Wilderfold LLC" },
+    { name = "BlackAcre AI LLC" },
     { name = "rosasynthesiz (upstream flstudio-mcp)" },
 ]
 requires-python = ">=3.10"

@@ -55,11 +55,11 @@ BoothMate is a local MCP server. Everything it does happens on your own machine:
 - **Keeps an undo log** (`~/.flstudio-mcp/changelog.jsonl`) so every change can be rolled back.
 - **Reads FL Studio's plugin and preset lists from disk** to suggest plugins you already own.
 
-It makes no network requests of its own and sends nothing to Wilderfold LLC or anyone else.
+It makes no network requests of its own and sends nothing to BlackAcre AI LLC or anyone else.
 
 ## Privacy Policy
 
-BoothMate collects no personal data. It has no accounts, analytics or telemetry, and it never sends your projects, audio, or requests anywhere. All processing happens locally between Claude's app and FL Studio on your computer. The only files it stores are its undo log and the scripts it installs into FL Studio, both on your machine, kept until you delete them. Your conversations with Claude are handled by Anthropic under Anthropic's own privacy policy. BoothMate shares no data with third parties. Questions: contact@blackfoxsolve.com, Wilderfold LLC.
+BoothMate collects no personal data. It has no accounts, analytics or telemetry, and it never sends your projects, audio, or requests anywhere. All processing happens locally between Claude's app and FL Studio on your computer. The only files it stores are its undo log and the scripts it installs into FL Studio, both on your machine, kept until you delete them. Your conversations with Claude are handled by Anthropic under Anthropic's own privacy policy. BoothMate shares no data with third parties. Questions: contact@blackfoxsolve.com, BlackAcre AI LLC.
 
 BoothMate is a fork of [flstudio-mcp](https://github.com/rosasynthesiz/flstudio-mcp) by rosasynthesiz (MIT). The upstream README follows.
 
