@@ -16,7 +16,7 @@ if (/<\/template>/i.test(template)) throw new Error("template contains </templat
 const logic = logicTag[2];
 
 const title = "BoothMate: make beats in FL Studio by talking to Claude";
-const desc = "Free Claude plugin for FL Studio. Ask for a beat in plain words and BoothMate writes the drums, 808s and chords. Plus Beat Breakdown: paste a YouTube link, get the blueprint.";
+const desc = "Free Claude plugin for FL Studio. Ask for a beat in plain words and BoothMate writes the drums, 808s and chords. It runs inside Claude, free.";
 
 const html = `<!doctype html>
 <html lang="en">
