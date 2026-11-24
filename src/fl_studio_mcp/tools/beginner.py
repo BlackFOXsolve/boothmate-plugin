@@ -16,6 +16,7 @@ from pydantic import Field
 
 from .. import protocol, safety
 from ..connection import fetch_all_pages, get_bridge
+from .. import editions, fl_launcher
 from ..music import hiphop as hh
 from .transport import _safe_call
 
@@ -79,17 +80,49 @@ def register(mcp: FastMCP) -> None:
            "idempotentHint": False, "openWorldHint": True}
 
     # ------------------------------------------------------------------ setup
+    # Plain-language next steps. Never send a beginner to a terminal: each
+    # status names the BoothMate tool Claude should call instead.
+    _BEGINNER_NEXT = {
+        "FL_NOT_INSTALLED": ("FL Studio isn't installed on this computer. Install it from "
+                             "image-line.com (the free trial works), open it once, then ask "
+                             "me to set up BoothMate.", None),
+        "USER_DATA_MISSING": ("FL Studio hasn't been opened on this computer yet.", "open_fl_studio"),
+        "CONTROLLER_MISSING": ("BoothMate isn't installed into FL Studio yet.", "setup_boothmate"),
+        "VERSION_MISMATCH": ("BoothMate's FL Studio script needs updating.", "setup_boothmate"),
+        "FL_CLOSED": ("FL Studio is closed.", "open_fl_studio"),
+        "NO_HEARTBEAT": ("FL Studio is open but hasn't loaded BoothMate yet. It needs one "
+                         "restart (save your project first).", "open_fl_studio"),
+        "PING_TIMEOUT": ("FL Studio is busy, probably showing a window or message.", "open_fl_studio"),
+        "PORTS_MISSING": ("On Windows, BoothMate needs two free loopMIDI ports named "
+                          "'FLStudioMCP RX' and 'FLStudioMCP TX'. Install loopMIDI from "
+                          "tobias-erichsen.de and add them, then ask me again.", None),
+        "MIDI_UNAVAILABLE": ("This copy of Claude can't use MIDI directly. Ask for help at "
+                             "github.com/BlackFOXsolve/boothmate-plugin/issues.", None),
+        "BRIDGE_STOPPED": ("BoothMate's background helper isn't running. Ask for help at "
+                           "github.com/BlackFOXsolve/boothmate-plugin/issues.", None),
+    }
+
+    def _report(diag: dict) -> dict:
+        status = diag["status"]
+        say, tool = _BEGINNER_NEXT.get(status, ("FL Studio isn't connected yet.", "setup_boothmate"))
+        return {"ready": False, "status": status, "say": say, "next_tool": tool,
+                "fl_running": fl_launcher.is_running(),
+                "edition": editions.describe(editions.get())}
+
+    # ------------------------------------------------------------------ setup
     @mcp.tool(annotations={"title": "Studio check (start here)", **_RO})
     def studio_check() -> dict:
-        """START HERE for beginners. Checks FL Studio is connected, reads the
-        Channel rack, and reports which sounds were found for each beat role
-        (kick, snare, clap, hat, open_hat, 808, chords) plus what's missing.
-        Returns `say`: a plain-language status to relay to the user."""
+        """START HERE. Checks FL Studio is connected, reads the Channel rack,
+        and reports which sounds were found for each beat role (kick, snare,
+        clap, hat, open_hat, 808, chords) plus what's missing. Also reports
+        the user's FL Studio edition (ask once if unknown, then call
+        set_fl_edition). When not ready it returns `next_tool`: call it
+        (open_fl_studio needs restart=true only after the user has saved).
+        Never tell the user to run terminal commands. Relay `say`."""
         from .. import setup_cli
-        report = setup_cli.diagnose(wait=3.0)
-        if report["status"] != "READY":
-            return {"ready": False, "status": report["status"],
-                    "say": "FL Studio isn't connected yet. Next step: %s" % report["next"]}
+        diag = setup_cli.diagnose(wait=3.0)
+        if diag["status"] != "READY":
+            return _report(diag)
         chans = _channels()
         roles = hh.match_channels(chans)
         missing = [r for r in ("kick", "snare", "hat", "808", "chords") if r not in roles]
@@ -101,6 +134,7 @@ def register(mcp: FastMCP) -> None:
         return {"ready": True, "roles": roles, "missing": missing,
                 "channels": [{"index": c.get("i", c.get("index")), "name": c.get("name")}
                              for c in chans],
+                "edition": editions.describe(editions.get()),
                 "say": say}
 
     @mcp.tool(annotations={"title": "Install BoothMate into FL Studio",
@@ -111,23 +145,88 @@ def register(mcp: FastMCP) -> None:
         BoothMate controller script into FL Studio's Settings/Hardware folder
         (an older, different copy is backed up, never overwritten) and the
         MCP_Apply script into the Piano roll scripts folder, then checks the
-        connection. Run when studio_check reports CONTROLLER_MISSING or on
-        first use. Returns `say` with the next step for the user."""
+        connection. FL Studio links BoothMate by itself; if FL was already
+        open it needs one restart (open_fl_studio with restart=true, after
+        the user saves). Returns `say` and `next_tool`."""
         from .. import setup_cli
         installed = setup_cli.install_controller()
         if not installed.get("ok"):
-            return {"ok": False, "installed": installed,
-                    "say": "Open FL Studio once so it creates its settings folder, "
-                           "then ask me to set up BoothMate again."}
+            return {"ok": False, "installed": installed, "next_tool": "open_fl_studio",
+                    "say": "FL Studio needs to be opened once so it creates its settings "
+                           "folder. I can open it for you."}
         note_script = setup_cli.seed_note_bridge()
-        report = setup_cli.diagnose(wait=3.0)
-        say = {
-            "READY": "All set. BoothMate is connected to FL Studio.",
-        }.get(report["status"], "Installed. Next step: %s" % report["next"])
-        if report["status"] != "READY" and installed.get("action") in ("installed", "updated"):
-            say += " (If FL Studio was already open, close it fully and reopen it first.)"
-        return {"ok": True, "controller": installed, "piano_roll_script": note_script,
-                "status": report["status"], "say": say}
+        diag = setup_cli.diagnose(wait=3.0)
+        if diag["status"] == "READY":
+            return {"ok": True, "controller": installed, "piano_roll_script": note_script,
+                    "status": "READY", "say": "All set. BoothMate is connected to FL Studio."}
+        out = _report(diag)
+        out.update(ok=True, controller=installed, piano_roll_script=note_script)
+        if fl_launcher.is_running():
+            out["say"] = ("Installed. FL Studio needs one restart to load BoothMate. "
+                          "Save your project, then I'll restart it for you.")
+            out["next_tool"] = "open_fl_studio"
+        return out
+
+    @mcp.tool(annotations={"title": "Open (or restart) FL Studio",
+                           "readOnlyHint": False, "destructiveHint": False,
+                           "idempotentHint": True, "openWorldHint": False})
+    def open_fl_studio(
+        restart: Annotated[bool, Field(description="Quit and reopen FL Studio. Only after the user has saved their project or said it's fine; FL shows its own save prompt if needed.")] = False,
+    ) -> dict:
+        """Open FL Studio for the user, close its start-up welcome window, and
+        wait until BoothMate is connected. Notices trial mode from the
+        welcome window. Use whenever studio_check says FL is closed, or (with
+        restart=true, after the user agrees) to load BoothMate the first time."""
+        from .. import setup_cli
+        steps = {}
+        if restart and fl_launcher.is_running():
+            steps["quit"] = fl_launcher.quit_app()
+            if not steps["quit"]["ok"]:
+                return {"ok": False, "steps": steps, "say": steps["quit"]["error"]}
+            time.sleep(2.0)
+        if not fl_launcher.is_running():
+            steps["launch"] = fl_launcher.launch()
+            if not steps["launch"]["ok"]:
+                return {"ok": False, "steps": steps, "say": steps["launch"]["error"]}
+        # Wait for FL's window, then close the welcome screen.
+        welcome = {"ok": False}
+        for _ in range(30):
+            time.sleep(2.0)
+            welcome = fl_launcher.dismiss_welcome()
+            if welcome.get("ok"):
+                break
+        steps["welcome"] = welcome
+        if welcome.get("trial"):
+            editions.note_trial_seen()
+        diag = setup_cli.diagnose(wait=15.0)
+        if diag["status"] == "READY":
+            say = "FL Studio is open and BoothMate is connected."
+            if editions.get() == "trial":
+                say += (" You're on the FL Studio trial: export your beat before closing "
+                        "FL Studio, because saved trial projects can't be reopened.")
+            return {"ok": True, "steps": steps, "status": "READY",
+                    "edition": editions.describe(editions.get()), "say": say}
+        out = _report(diag)
+        out.update(ok=False, steps=steps)
+        if diag["status"] == "NO_HEARTBEAT" and not restart:
+            out["say"] = ("FL Studio is open, but BoothMate isn't loaded in it yet. It needs "
+                          "one restart; save your project and I'll restart it.")
+        return out
+
+    @mcp.tool(annotations={"title": "Remember the user's FL Studio edition",
+                           "readOnlyHint": False, "destructiveHint": False,
+                           "idempotentHint": True, "openWorldHint": False})
+    def set_fl_edition(
+        edition: Annotated[str, Field(description="trial, fruity, producer, signature or all_plugins.")],
+    ) -> dict:
+        """Save which FL Studio the user has (asked once). BoothMate adapts:
+        trial users get export reminders, Fruity Edition can't record audio,
+        Signature and All Plugins include NewTone for vocal tuning."""
+        try:
+            e = editions.set_edition(edition)
+        except ValueError as err:
+            return {"ok": False, "error": str(err)}
+        return {"ok": True, **editions.describe(e)}
 
     @mcp.tool(annotations={"title": "List genres and moods", **_RO})
     def beat_styles() -> dict:
@@ -341,6 +440,10 @@ def register(mcp: FastMCP) -> None:
             steps += [_safe_call(protocol.CMD_STOP), goto(cur - n * _BEATS_PER_BAR),
                       _safe_call(protocol.CMD_PLAY)]
         elif action == "record_take":
+            if not editions.can_record_audio():
+                return {"ok": False, "action": action,
+                        "say": "FL Studio Fruity Edition can't record audio. Recording vocals "
+                               "needs Producer Edition or higher."}
             state = _safe_call(protocol.CMD_GET_PLAY_STATE) or {}
             steps.append(_safe_call(protocol.CMD_STOP))
             steps.append(goto(((bar or 1) - 1) * _BEATS_PER_BAR))

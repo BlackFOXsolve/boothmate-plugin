@@ -1,7 +1,7 @@
 # name=FLStudioMCP
 # url=https://github.com/rosasynthesiz/flstudio-mcp
 # receiveFrom=
-# supportedDevices=FLStudioMCP,FLStudioMCP RX
+# supportedDevices=BoothMate,FLStudioMCP,FLStudioMCP RX
 """FLStudioMCP controller script -- MIDI SysEx transport.
 
 Installed by ``fl-studio-mcp setup`` to:
@@ -12,7 +12,7 @@ is the only two-way channel to an outside process.
 
 How FL links this script:
   * macOS / Linux: the server creates two virtual MIDI ports that share the
-    name "FLStudioMCP". That name is listed under ``supportedDevices`` above,
+    name "BoothMate" (older versions: "FLStudioMCP"). That name is listed under ``supportedDevices`` above,
     so FL links this script, pairs input and output on one Port number and
     enables both by itself. Nothing to do in MIDI Settings.
   * Windows (loopMIDI ports "FLStudioMCP RX" and "FLStudioMCP TX"):

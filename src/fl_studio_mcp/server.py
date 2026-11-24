@@ -145,6 +145,21 @@ def _print_ports() -> int:
     return 0
 
 
+def _ensure_controller_installed() -> None:
+    """BoothMate: put the FL controller script in place BEFORE any MIDI port
+    exists, so FL links the port to BoothMate the first time it sees it and
+    nobody has to open MIDI Settings. Quiet and best-effort: if FL Studio has
+    never been opened, setup_boothmate handles it later."""
+    try:
+        from . import setup_cli
+        res = setup_cli.install_controller()
+        if res.get("ok"):
+            setup_cli.seed_note_bridge()
+        logger.info("controller install at startup: %s", res.get("action", res.get("status")))
+    except Exception as e:  # noqa: BLE001 - never block the server on this
+        logger.warning("controller install at startup skipped: %s", e)
+
+
 def main() -> None:
     logging.basicConfig(
         level=os.environ.get("FLSTUDIO_MCP_LOG", "INFO").upper(),
@@ -159,6 +174,7 @@ def main() -> None:
         from . import setup_cli
         sys.exit(setup_cli.run(sys.argv[1:]))
 
+    _ensure_controller_installed()
     logger.info(
         "fl-studio-mcp %s; ports: out=%r, in=%r",
         __version__, port_to_fl_name(), port_from_fl_name(),

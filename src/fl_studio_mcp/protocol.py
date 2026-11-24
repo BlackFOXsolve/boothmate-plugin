@@ -68,7 +68,12 @@ DEFAULT_PORT_FROM_FL = "FLStudioMCP TX"
 # controller script (``# supportedDevices=FLStudioMCP``) is linked, the output
 # is paired to the same Port number and both are enabled without any clicks in
 # MIDI Settings. Verified live on FL Studio 26.1.5 [build 5384], macOS.
-SHARED_PORT_NAME = "FLStudioMCP"
+# BoothMate: the shared port is named "BoothMate". FL remembers each MIDI
+# device the first time it sees it; a machine where FL met "FLStudioMCP"
+# before the controller script was installed keeps it as a generic
+# controller. A fresh name, plus installing the script before the port is
+# created (server.main), lets FL auto-link it on every machine.
+SHARED_PORT_NAME = "BoothMate"
 
 
 def port_names_overridden() -> bool:

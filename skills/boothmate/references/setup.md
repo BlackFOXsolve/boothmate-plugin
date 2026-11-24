@@ -14,8 +14,8 @@ Then fully quit and reopen Claude so BoothMate's server can start.
 ## 2. Windows only: create the two MIDI ports
 Install loopMIDI (tobias-erichsen.de). Delete its default port, then add two ports named exactly `FLStudioMCP RX` and `FLStudioMCP TX`. Keep loopMIDI running (it can start with Windows).
 
-## 3. Open FL Studio once, then ask Claude to set up BoothMate
-Call `setup_boothmate`. It copies the controller and MCP Apply scripts into FL Studio's settings folder. If FL Studio was already open, close it fully and reopen it.
+## 3. Ask Claude to set up BoothMate
+Call `setup_boothmate`, then `open_fl_studio`. BoothMate installs its FL Studio scripts, opens FL Studio, closes the welcome window and connects. If FL Studio was already open, ask the user to save, then `open_fl_studio` with restart=true. On a Mac, FL links BoothMate by itself; there's nothing to set in MIDI Settings.
 
 ## 4. Windows only: switch it on in FL Studio
 Options > MIDI Settings:

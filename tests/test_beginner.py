@@ -268,9 +268,84 @@ async def test_setup_boothmate_installs_and_reports(monkeypatch, fl):
     monkeypatch.setattr(setup_cli, "seed_note_bridge", lambda: "MCP_Apply.pyscript")
     monkeypatch.setattr(setup_cli, "diagnose",
                         lambda wait=0: {"status": "CONTROLLER_MISSING", "next": "Restart FL"})
+    from fl_studio_mcp import fl_launcher
+    monkeypatch.setattr(fl_launcher, "is_running", lambda: True)
     out = await _call("setup_boothmate", {})
-    assert out["ok"] and "reopen" in out["say"]
+    assert out["ok"] and "restart" in out["say"] and out["next_tool"] == "open_fl_studio"
+    assert "`" not in out["say"]
     monkeypatch.setattr(setup_cli, "install_controller",
                         lambda: {"ok": False, "status": "USER_DATA_MISSING"})
     out = await _call("setup_boothmate", {})
-    assert out["ok"] is False and "Open FL Studio once" in out["say"]
+    assert out["ok"] is False and out["next_tool"] == "open_fl_studio"
+
+
+# ---------------------------------------------------------------- editions & launch
+
+
+@pytest.fixture
+def home(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    return tmp_path
+
+
+def test_edition_roundtrip_and_aliases(home):
+    from fl_studio_mcp import editions
+    assert editions.get() is None
+    assert editions.set_edition("All Plugins Edition") == "all_plugins"
+    assert editions.get() == "all_plugins"
+    with pytest.raises(ValueError):
+        editions.set_edition("platinum")
+
+
+def test_trial_detection_never_overrides_a_paid_edition(home):
+    from fl_studio_mcp import editions
+    editions.note_trial_seen()
+    assert editions.get() == "trial"
+    editions.set_edition("producer")
+    editions.note_trial_seen()
+    assert editions.get() == "producer"
+
+
+@pytest.mark.asyncio
+async def test_fruity_edition_blocks_recording(fl, home):
+    from fl_studio_mcp import editions
+    editions.set_edition("fruity")
+    out = await _call("booth", {"action": "record_take", "bar": 1})
+    assert out["ok"] is False and "Producer Edition" in out["say"]
+    assert not fl.recording
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", ["FL_CLOSED", "NO_HEARTBEAT", "CONTROLLER_MISSING",
+                                    "USER_DATA_MISSING", "PORTS_MISSING", "VERSION_MISMATCH"])
+async def test_studio_check_never_sends_beginners_to_a_terminal(monkeypatch, fl, home, status):
+    from fl_studio_mcp import fl_launcher, setup_cli
+    monkeypatch.setattr(setup_cli, "diagnose", lambda wait=0: {"status": status, "next": "x"})
+    monkeypatch.setattr(fl_launcher, "is_running", lambda: False)
+    out = await _call("studio_check", {})
+    assert out["ready"] is False
+    for bad in ("`", "fl-studio-mcp", "terminal", "daemon"):
+        assert bad not in out["say"]
+
+
+@pytest.mark.asyncio
+async def test_open_fl_studio_launches_dismisses_and_notes_trial(monkeypatch, fl, home):
+    from fl_studio_mcp import editions, fl_launcher, setup_cli
+    from fl_studio_mcp.tools import beginner
+    running = {"v": False}
+    monkeypatch.setattr(fl_launcher, "is_running", lambda: running["v"])
+    monkeypatch.setattr(fl_launcher, "launch", lambda: running.update(v=True) or {"ok": True})
+    monkeypatch.setattr(fl_launcher, "dismiss_welcome", lambda: {"ok": True, "closed": True, "trial": True})
+    monkeypatch.setattr(setup_cli, "diagnose", lambda wait=0: {"status": "READY", "next": ""})
+    monkeypatch.setattr(beginner.time, "sleep", lambda *_: None)
+    out = await _call("open_fl_studio", {})
+    assert out["ok"] and running["v"] and editions.get() == "trial"
+    assert "export" in out["say"]
+
+
+def test_welcome_window_is_recognised_by_title_or_size():
+    from fl_studio_mcp.fl_launcher import _is_welcome
+    assert _is_welcome({"title": "Welcome to FL Studio - in trial mode", "w": 10, "h": 10})
+    assert _is_welcome({"title": "", "w": 874, "h": 573})
+    assert not _is_welcome({"title": "FL Studio 2026", "w": 1710, "h": 998})

@@ -10,8 +10,9 @@ Act as a friendly studio engineer for someone who may never have used FL Studio.
 ## Start of every session
 
 1. Call `studio_check`. Relay its `say` line in plain words.
-2. If the status is CONTROLLER_MISSING or USER_DATA_MISSING, call `setup_boothmate` (it installs into FL Studio for them; no terminal needed) and relay its `say`. Otherwise, if not ready, give the single next step it returns and stop. If the tools themselves are unavailable, `uv` is probably not installed. For first-time setup, see `references/setup.md`.
-3. If sounds are missing (no 808, no keys), tell the user which ones to drag into the Channel rack and what to name them. Accept "use channel 6 for the 808" and pass it as `channels`.
+2. If it returns `next_tool`, call it: `setup_boothmate` installs BoothMate into FL Studio; `open_fl_studio` opens FL Studio and clears its welcome window. Use `restart=true` only after the user has saved their project or said it's fine. Never tell the user to type terminal commands or open MIDI Settings. For anything else, see `references/setup.md`.
+3. If the edition is unknown, ask once which FL Studio they have (trial, Fruity, Producer, Signature Bundle or All Plugins Edition) and call `set_fl_edition`. Then follow its notes: remind trial users to export before closing FL Studio; on Fruity Edition, don't offer audio recording.
+4. If sounds are missing (no 808, no keys), tell the user which ones to drag into the Channel rack and what to name them. Accept "use channel 6 for the 808" and pass it as `channels`.
 
 ## Making music
 
