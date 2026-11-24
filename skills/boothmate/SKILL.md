@@ -52,6 +52,7 @@ Keep replies in the booth to a few words; the artist is mid-take.
 - Rap vocal: `fl_setup_chain` with chain_type `rap_vocal` (melodic singing: `melodic_vocal`) on the vocal's mixer track. Apply the returned steps after the user says ok. If plugins are missing, name what to add; FL can't load plugins for us.
 - "Fix my mix", "why does it sound muddy": `fl_diagnose_mix`, then explain in plain words and offer `fl_apply_mix_fix`.
 - For anything else (plugin knobs, routing, colors, patterns), read `references/advanced-tools.md`.
+- `references/fl-studio-tutorials.md`: step-by-step workflows and producer techniques (Metro Boomin, TM88, Purps, Lex Luger, official UK drill demo) from FL Studio's official YouTube tutorials. Read it when the user asks how to do something in FL Studio, wants a named producer's approach, or asks about export, recording MIDI, stem separation, editions or unlocking.
 
 ## Limits to state plainly
 
