@@ -18,7 +18,7 @@ Install loopMIDI (tobias-erichsen.de). Delete its default port, then add two por
 Call `setup_boothmate`, then `open_fl_studio`. BoothMate installs its FL Studio scripts, opens FL Studio, closes the welcome window and connects. If FL Studio was already open, ask the user to save, then `open_fl_studio` with restart=true. 
 
 ## 4. Switch it on in FL Studio (once)
-FL Studio should link BoothMate by itself, but FL Studio 2026.1.7 on macOS was seen not to. If `studio_check` still says NO_HEARTBEAT after a restart, walk the user through Options > MIDI Settings:
+FL Studio 2026.1.7 on macOS does not link BoothMate by itself (tested Nov 2026: port present before FL starts, name in supportedDevices, script named after the port, identity reply answered; all still filed as a generic controller). FL remembers the setting afterwards, so this is once per computer. If `studio_check` says NO_HEARTBEAT after a restart, do it for the user with computer use if it's available (ask before taking the screen), otherwise walk them through Options > MIDI Settings:
 - Input: select `BoothMate Studio` (Mac) or `FLStudioMCP RX` (Windows), turn on Enable, set Controller type to **BoothMate Studio**, set Port to 0.
 - Output: select `BoothMate Studio` (Mac) or `FLStudioMCP TX` (Windows) and set its Port to the same number.
 
