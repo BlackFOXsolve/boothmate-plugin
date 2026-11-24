@@ -38,3 +38,6 @@ htmlcov/
 
 # Bridge runtime data (don't commit the queue)
 flstudio_mcp_bridge/
+
+# site: Netlify functions keep shared code in lib/
+!site/netlify/functions/lib/
