@@ -3,7 +3,7 @@
 Needs FL Studio 20.7 or newer (2025+ recommended) and `uv`, which installs Python automatically. Video-style walkthrough: https://github.com/BlackFOXsolve/boothmate-plugin#setup
 
 ## 0. Install BoothMate
-Claude desktop app: download https://github.com/BlackFOXsolve/boothmate-plugin/raw/main/downloads/BoothMate.mcpb and double-click it. Claude Code: `/plugin marketplace add BlackFOXsolve/boothmate-plugin`, then `/plugin install boothmate@wilderfold`.
+Claude desktop app: download https://github.com/BlackFOXsolve/boothmate-plugin/raw/main/downloads/BoothMate-0.1.3.mcpb and double-click it. Claude Code: `/plugin marketplace add BlackFOXsolve/boothmate-plugin`, then `/plugin install boothmate@wilderfold`.
 
 ## 1. Install uv (both)
 - Windows (PowerShell): `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
@@ -19,8 +19,8 @@ Call `setup_boothmate`, then `open_fl_studio`. BoothMate installs its FL Studio 
 
 ## 4. Switch it on in FL Studio (once)
 FL Studio should link BoothMate by itself, but FL Studio 2026.1.7 on macOS was seen not to. If `studio_check` still says NO_HEARTBEAT after a restart, walk the user through Options > MIDI Settings:
-- Input: select `BoothMate` (Mac) or `FLStudioMCP RX` (Windows), turn on Enable, set Controller type to **FLStudioMCP**, set Port to 0.
-- Output: select `BoothMate` (Mac) or `FLStudioMCP TX` (Windows) and set its Port to the same number.
+- Input: select `BoothMate Link` (Mac) or `FLStudioMCP RX` (Windows), turn on Enable, set Controller type to **FLStudioMCP**, set Port to 0.
+- Output: select `BoothMate Link` (Mac) or `FLStudioMCP TX` (Windows) and set its Port to the same number.
 
 ## 5. Mac only: allow keystrokes
 System Settings > Privacy & Security: turn on Claude under Accessibility, and under Automation > Claude turn on System Events. BoothMate's error names whichever one is missing.

@@ -122,8 +122,8 @@ def test_default_creates_one_shared_name(monkeypatch):
     bridge = conn.FLBridge()
     bridge.open()
     try:
-        assert fake.calls == [("output", "BoothMate", True), ("input", "BoothMate", True)]
-        assert bridge.port_to_fl == bridge.port_from_fl == "BoothMate"
+        assert fake.calls == [("output", "BoothMate Link", True), ("input", "BoothMate Link", True)]
+        assert bridge.port_to_fl == bridge.port_from_fl == "BoothMate Link"
     finally:
         bridge.close()
 
@@ -154,7 +154,7 @@ def test_env_names_are_used_as_given(monkeypatch):
 
 
 def test_second_owner_is_refused(monkeypatch):
-    fake = _Backend(outs=["BoothMate"], ins=["BoothMate"])   # FL's view of an owner
+    fake = _Backend(outs=["BoothMate Link"], ins=["BoothMate Link"])   # FL's view of an owner
     _mac(monkeypatch, fake)
     # The owner's ports show up to us mirrored; either side existing is enough.
     with pytest.raises(conn.FLBridgeBusy):

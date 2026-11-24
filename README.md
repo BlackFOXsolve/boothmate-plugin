@@ -19,7 +19,7 @@ Every change is undoable. Setup for Windows and Mac: [skills/boothmate/reference
 
 ## Install
 
-**Claude desktop app (Windows or Mac):** download [BoothMate.mcpb](https://github.com/BlackFOXsolve/boothmate-plugin/raw/main/downloads/BoothMate.mcpb) and double-click it. Claude opens it and asks you to install.
+**Claude desktop app (Windows or Mac):** download [BoothMate.mcpb](https://github.com/BlackFOXsolve/boothmate-plugin/raw/main/downloads/BoothMate-0.1.3.mcpb) and double-click it. Claude opens it and asks you to install.
 
 **Claude Code:**
 
@@ -37,7 +37,7 @@ About ten minutes, once. Claude walks you through it; the full guide is in [setu
    - Mac (Terminal): `curl -LsSf https://astral.sh/uv/install.sh | sh`
 2. **Windows only:** install [loopMIDI](https://www.tobias-erichsen.de/software/loopmidi.html) and create two ports named exactly `FLStudioMCP RX` and `FLStudioMCP TX`.
 3. **Open FL Studio, then tell Claude "set up BoothMate".** It installs the FL Studio scripts for you. Restart FL Studio if it was open.
-4. **If Claude says FL Studio still isn't connected:** in FL Studio, Options > MIDI Settings. Select `BoothMate` (Mac) or `FLStudioMCP RX` (Windows) under Input, turn on Enable, set Controller type to **FLStudioMCP** and Port to 0, then give the matching Output the same Port.
+4. **If Claude says FL Studio still isn't connected:** in FL Studio, Options > MIDI Settings. Select `BoothMate Link` (Mac) or `FLStudioMCP RX` (Windows) under Input, turn on Enable, set Controller type to **FLStudioMCP** and Port to 0, then give the matching Output the same Port.
 5. **Mac only:** allow Claude under System Settings > Privacy & Security > Accessibility, and under Automation > Claude > System Events.
 6. **Each FL session:** open the Piano roll and click Scripting > MCP Apply once.
 7. **Say "make me a trap beat."**

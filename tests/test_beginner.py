@@ -339,9 +339,16 @@ async def test_open_fl_studio_launches_dismisses_and_notes_trial(monkeypatch, fl
     monkeypatch.setattr(fl_launcher, "dismiss_welcome", lambda: {"ok": True, "closed": True, "trial": True})
     monkeypatch.setattr(setup_cli, "diagnose", lambda wait=0: {"status": "READY", "next": ""})
     monkeypatch.setattr(beginner.time, "sleep", lambda *_: None)
+    order = []
+    from fl_studio_mcp import server
+    monkeypatch.setattr(server, "warm_bridge", lambda block=False: order.append("port"))
+    monkeypatch.setattr(fl_launcher, "launch",
+                        lambda: order.append("launch") or running.update(v=True) or {"ok": True})
     out = await _call("open_fl_studio", {})
     assert out["ok"] and running["v"] and editions.get() == "trial"
     assert "export" in out["say"]
+    # FL links BoothMate only if the port already exists when FL starts.
+    assert order == ["port", "launch"]
 
 
 def test_welcome_window_is_recognised_by_title_or_size():
@@ -359,3 +366,12 @@ def test_welcome_window_is_recognised_by_title_or_size():
 def test_mac_permission_hint_names_the_right_switch(stderr, word):
     from fl_studio_mcp.pyscript_trigger import mac_permission_hint
     assert word in mac_permission_hint(stderr)
+
+
+def test_port_name_is_listed_in_controller_script():
+    import pathlib
+    from fl_studio_mcp import protocol
+    head = pathlib.Path(__file__).parents[1].joinpath(
+        "fl_controller/FLStudioMCP/device_FLStudioMCP.py").read_text().splitlines()[:6]
+    line = next(l for l in head if l.startswith("# supportedDevices="))
+    assert protocol.SHARED_PORT_NAME in line.split("=", 1)[1].split(",")

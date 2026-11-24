@@ -1,7 +1,7 @@
 # name=FLStudioMCP
 # url=https://github.com/rosasynthesiz/flstudio-mcp
 # receiveFrom=
-# supportedDevices=BoothMate,FLStudioMCP,FLStudioMCP RX
+# supportedDevices=BoothMate Link,BoothMate,FLStudioMCP,FLStudioMCP RX
 """FLStudioMCP controller script -- MIDI SysEx transport.
 
 Installed by ``fl-studio-mcp setup`` to:

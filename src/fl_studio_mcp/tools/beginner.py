@@ -185,6 +185,10 @@ def register(mcp: FastMCP) -> None:
                 return {"ok": False, "steps": steps, "say": steps["quit"]["error"]}
             time.sleep(2.0)
         if not fl_launcher.is_running():
+            # The BoothMate port must exist BEFORE FL starts, or FL files it
+            # as a generic controller instead of linking BoothMate.
+            from ..server import warm_bridge
+            warm_bridge(block=True)
             steps["launch"] = fl_launcher.launch()
             if not steps["launch"]["ok"]:
                 return {"ok": False, "steps": steps, "say": steps["launch"]["error"]}

@@ -160,6 +160,29 @@ def _ensure_controller_installed() -> None:
         logger.warning("controller install at startup skipped: %s", e)
 
 
+def warm_bridge(block: bool = False) -> None:
+    """BoothMate (macOS/Linux): create the shared virtual MIDI port now, so it
+    already exists when FL Studio starts. FL links devices to their script
+    when it starts; a port that appears later is filed as a generic
+    controller. Best-effort and quiet."""
+    if sys.platform not in ("darwin", "linux"):
+        return
+
+    def _go() -> None:
+        try:
+            from .connection import get_bridge
+            get_bridge()
+            logger.info("BoothMate MIDI port ready before FL Studio starts")
+        except Exception as e:  # noqa: BLE001
+            logger.info("early MIDI port skipped: %s", e)
+
+    if block:
+        _go()
+    else:
+        import threading
+        threading.Thread(target=_go, name="boothmate-warm", daemon=True).start()
+
+
 def main() -> None:
     logging.basicConfig(
         level=os.environ.get("FLSTUDIO_MCP_LOG", "INFO").upper(),
@@ -175,6 +198,7 @@ def main() -> None:
         sys.exit(setup_cli.run(sys.argv[1:]))
 
     _ensure_controller_installed()
+    warm_bridge()
     logger.info(
         "fl-studio-mcp %s; ports: out=%r, in=%r",
         __version__, port_to_fl_name(), port_from_fl_name(),

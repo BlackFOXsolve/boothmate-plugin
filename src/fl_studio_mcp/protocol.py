@@ -73,7 +73,12 @@ DEFAULT_PORT_FROM_FL = "FLStudioMCP TX"
 # before the controller script was installed keeps it as a generic
 # controller. A fresh name, plus installing the script before the port is
 # created (server.main), lets FL auto-link it on every machine.
-SHARED_PORT_NAME = "BoothMate"
+# 0.1.3: FL only auto-links a device it finds when it starts. The port used to
+# be created lazily (first tool call), i.e. after FL was already open, so FL
+# filed it as a generic controller. server.main now creates the port at start
+# and open_fl_studio makes sure it exists before launching FL. Renamed again
+# so machines that already filed "BoothMate" as generic get a clean start.
+SHARED_PORT_NAME = "BoothMate Link"
 
 
 def port_names_overridden() -> bool:
