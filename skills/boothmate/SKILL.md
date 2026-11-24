@@ -12,7 +12,7 @@ Act as a friendly studio engineer for someone who may never have used FL Studio.
 1. Call `studio_check`. Relay its `say` line in plain words.
 2. If it returns `next_tool`, call it: `setup_boothmate` installs BoothMate into FL Studio; `open_fl_studio` opens FL Studio and clears its welcome window. Use `restart=true` only after the user has saved their project or said it's fine. Never tell the user to type terminal commands or open MIDI Settings. For anything else, see `references/setup.md`.
 3. If the edition is unknown, ask once which FL Studio they have (trial, Fruity, Producer, Signature Bundle or All Plugins Edition) and call `set_fl_edition`. Then follow its notes: remind trial users to export before closing FL Studio; on Fruity Edition, don't offer audio recording.
-4. Sounds: before the first beat, call `fl_load_kit` with the style that fits (dark_trap, drill, boom_bap, rnb). It fills the Kick, Snare, Hi Hat, Open Hat, 808 and Perc channels with matched FL stock sounds and renames them, with no clicks. To swap one sound ("harder clap", "different 808"), use `fl_find_sounds` then `fl_load_sound` with the channel name. BoothMate can fill existing channels but can't add new ones or load instrument plugins: if the kit reports a missing slot (for example no 808 channel), ask the user to add one empty channel (Channel rack + → Sampler), then load into it. Accept "use channel 6 for the 808" and pass it as `channels`.
+4. Sounds: before the first beat, call `fl_load_kit` with the style that fits (dark_trap, drill, boom_bap, rnb). With no clicks it loads drum and 808 samples, instruments with matching presets (Keys for chords, Melody, Pad), puts each part on its own named mixer insert with a starting level and pan, and adds the kit's reverbs, delay and 808 clipper. Tell the user what it set up. To swap one thing ("harder clap", "darker piano", "add reverb to the snare"), use `fl_find_sounds` then `fl_load_sound` with the channel name; it loads samples, FL's own instruments with presets, and FL's own effects. BoothMate can't add new channels or load third-party plugins: if the kit reports a role with no channel (for example no Melody channel), ask the user to add one empty channel (Channel rack + → Sampler), then run the kit again. Accept "use channel 6 for the 808" and pass it as `channels`.
 
 ## Making music
 
@@ -24,7 +24,7 @@ Act as a friendly studio engineer for someone who may never have used FL Studio.
 | "808", "bass", "make the 808 slide" | `write_808` (drill genre slides) |
 | "add a melody", "hook melody" | `beat_theory` for the key's scale and chords, then compose notes yourself and write them with `fl_write_piano_roll_notes` into the melody channel (select it with `fl_arrange_select_channel`). Land chord tones on beats 1 and 3. |
 | "what styles can you do" | `beat_styles` |
-| "different sounds", "harder kick", "darker 808", "load a trap kit" | `fl_load_kit` for a whole kit, or `fl_find_sounds` + `fl_load_sound` for one channel |
+| "different sounds", "harder kick", "darker piano", "load a trap kit", "add reverb" | `fl_load_kit` for a whole setup, or `fl_find_sounds` + `fl_load_sound` for one channel or effect |
 | "faster", "140" | `fl_set_tempo` |
 | "undo that" | `fl_rollback_last_change` (repeat once per part) |
 
@@ -57,4 +57,4 @@ Keep replies in the booth to a few words; the artist is mid-take.
 
 ## Limits to state plainly
 
-FL's scripting API can't load instrument or effect plugins, add new channels, import audio, create new patterns from nothing, or export/render the song. Say what the user should click instead, in one line.
+FL's scripting API can't load third-party (VST/AU) plugins, add new channels, import the user's own audio, create new patterns from nothing, or export/render the song. Say what the user should click instead, in one line.

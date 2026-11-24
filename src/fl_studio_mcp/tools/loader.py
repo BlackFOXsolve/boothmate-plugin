@@ -72,6 +72,22 @@ def register(mcp: FastMCP) -> None:
         then tells you exactly how to control the plugin once it's loaded. Call
         it to understand the limitation rather than expecting an actual load."""
         result = describe_load_limitation(name, as_generator)
+        # FL Studio's own instruments and effects CAN be loaded through the
+        # Browser (0.1.7): point the agent at fl_load_sound with the entry.
+        try:
+            from .sounds import search, stock_roots
+            roots = [r for r in stock_roots() if r.name == "Patches"]
+            hits = [h for h in search(name, roots, 10, {".fst"})
+                    if h["folder"].startswith("Plugin database/" + ("Generators" if as_generator else "Effects"))]
+            if hits:
+                result.update(ok=True, supported=True, stock_plugin=hits[0]["path"],
+                              how=("This is one of FL Studio's own plugins, so BoothMate can load it: call "
+                                   "fl_load_sound with sound=<stock_plugin> and the channel "
+                                   + ("to turn into this instrument." if as_generator
+                                      else "whose mixer insert should get the effect.")))
+                return result
+        except Exception:
+            pass
         if attempt_focus:
             import subprocess
             import sys

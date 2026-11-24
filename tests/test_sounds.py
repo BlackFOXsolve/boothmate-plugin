@@ -150,3 +150,119 @@ def test_load_brings_fl_to_front_when_browser_has_no_focus(monkeypatch, tmp_path
     res = sounds.load_into_channel(str(f), 0, [root])
     assert calls == {"front": 1, "home": 2}
     assert "Couldn't find the folder" in res["error"]
+
+
+from fl_studio_mcp.tools import kit_data
+
+
+def test_plugin_and_kind_from_preset_paths():
+    assert kit_data.plugin_of("Plugin presets/Generators/Sytrus/Bell/Dream bell.fst") == "Sytrus"
+    assert kit_data.plugin_of("Plugin database/Effects/Dynamics/Fruity Soft Clipper.fst") == "Fruity Soft Clipper"
+    assert kit_data.plugin_of("Channel presets/3x Osc/Bell.fst") == "3x Osc"
+    assert kit_data.plugin_of("Plugin presets/Effects/Fruity Reeverb 2/Drum Room.fst") == "Fruity Reeverb 2"
+    assert kit_data.kind_of("Packs/Drums/Kicks/808 Kick.wav") == "sample"
+    assert kit_data.kind_of("Plugin presets/Effects/Fruity Reeverb 2/Drum Room.fst") == "effect"
+    assert kit_data.kind_of("Plugin database/Effects/Dynamics/Fruity Soft Clipper.fst") == "effect"
+    assert kit_data.kind_of("Plugin presets/Generators/FL Keys/Dark Piano.fst") == "instrument"
+
+
+def test_edition_gating():
+    sy = "Plugin presets/Generators/Sytrus/Bell/Dream bell.fst"
+    osc = "Channel presets/3x Osc/Bell.fst"
+    harm = "Plugin presets/Generators/Harmor/Bell/Cursed bells.fst"
+    assert kit_data.allowed(osc, "fruity") and not kit_data.allowed(sy, "fruity")
+    assert kit_data.allowed(sy, "producer") and not kit_data.allowed(harm, "producer")
+    assert kit_data.allowed(harm, "trial") and kit_data.allowed(harm, "all_plugins")
+    assert kit_data.allowed(sy, None) and not kit_data.allowed(harm, None)
+
+
+def test_every_instrument_role_has_a_fruity_option():
+    for name, kit in kit_data.KITS.items():
+        for role, rels in kit.get("instruments", {}).items():
+            assert role in kit_data.ROLE_KIND and kit_data.ROLE_KIND[role] == "inst"
+            assert any(kit_data.allowed(r, "fruity") for r in rels), (name, role)
+        for role in kit.get("fx", {}):
+            assert role in kit["sounds"] or role in kit["instruments"], (name, role)
+        for role in list(kit["sounds"]) + list(kit.get("instruments", {})):
+            assert role in kit_data.MIX and role in kit_data.INSERTS
+
+
+def test_assign_roles_melodic_by_name_then_leftover_instruments():
+    names = ["Kick", "Snare", "Hi Hat", "Open Hat", "808 Astronomic", "FL Keys", "Choir Aahs", "Sytrus"]
+    types = [0, 0, 0, 0, 2, 2, 2, 2]
+    plan = sounds.assign_roles(names, ["Kick", "Snare", "Hi Hat", "Open Hat", "808", "Keys", "Melody", "Pad"], types)
+    assert plan["808"] == 4 and plan["Keys"] == 5 and plan["Pad"] == 6
+    assert plan["Melody"] == 7  # leftover instrument channel
+    plan2 = sounds.assign_roles(names[:7], ["Keys", "Melody", "Pad", "808"], types[:7])
+    assert "Melody" not in plan2
+
+
+def test_pick_inserts_keeps_own_insert_and_avoids_others():
+    plan = {"Kick": 0, "Snare": 1, "Keys": 5, "Pad": 6}
+    routing = {0: 1, 1: 1, 5: 7, 6: 0}   # kick+snare share insert 1, pad on master
+    out = sounds.pick_inserts(plan, routing, taken_by_others={9, 2})
+    assert out["Keys"] == 7               # its own, unshared insert is kept
+    assert out["Kick"] == 1               # preferred insert
+    assert out["Snare"] not in (1, 2, 9)  # shared/taken -> a free one
+    assert out["Pad"] not in (9,) and len(set(out.values())) == 4
+
+
+def _fake_patches(tmp_path):
+    root = tmp_path / "Patches"
+    for rel in ["Packs/Drums/Kicks/808 Kick.wav", "Plugin database/Generators/Sampler/Sampler.fst",
+                "Plugin presets/Generators/FL Keys/Dark Piano.fst",
+                "Plugin presets/Effects/Fruity Reeverb 2/Drum Room.fst"]:
+        f = root / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_bytes(b"x")
+    return root
+
+
+def test_place_sample_on_instrument_swaps_in_sampler_first(monkeypatch, tmp_path):
+    root = _fake_patches(tmp_path)
+    types = {3: 2}
+    loads = []
+
+    def fake_load(path, ch, roots):
+        loads.append(os.path.basename(path))
+        if path.endswith("Sampler.fst"):
+            types[ch] = 0
+        return {"ok": True, "channel": {"i": ch, "name": "x"}}
+    monkeypatch.setattr(sounds, "load_into_channel", fake_load)
+    monkeypatch.setattr(sounds, "_type_of", lambda ch: types.get(ch, 0))
+    r = sounds.place(str(root / "Packs/Drums/Kicks/808 Kick.wav"), 3, [root])
+    assert r["ok"] and loads == ["Sampler.fst", "808 Kick.wav"]
+    r = sounds.place(str(root / "Packs/Drums/Kicks/808 Kick.wav"), 5, [root])
+    assert loads[-1] == "808 Kick.wav"
+    types[7] = 2
+    r = sounds.place(str(root / "Packs/Drums/Kicks/808 Kick.wav"), 7, [root], replace_instrument=False)
+    assert r["ok"] is False
+
+
+def test_place_instrument_checks_fl_renamed_channel(monkeypatch, tmp_path):
+    root = _fake_patches(tmp_path)
+    monkeypatch.setattr(sounds, "load_into_channel",
+                        lambda p, ch, roots: {"ok": True, "channel": {"i": ch, "name": "Dark Piano"}})
+    assert sounds.place(str(root / "Plugin presets/Generators/FL Keys/Dark Piano.fst"), 5, [root])["ok"]
+    monkeypatch.setattr(sounds, "load_into_channel",
+                        lambda p, ch, roots: {"ok": True, "channel": {"i": ch, "name": "FL Keys"}})
+    r = sounds.place(str(root / "Plugin presets/Generators/FL Keys/Dark Piano.fst"), 5, [root])
+    assert r["ok"] is False and "didn't load" in r["error"]
+
+
+def test_place_effect_needs_insert_and_checks_slot_added(monkeypatch, tmp_path):
+    root = _fake_patches(tmp_path)
+    fx = {4: ["Fruity Reeverb 2"]}
+    monkeypatch.setattr(sounds, "_routing", lambda: {3: 4, 2: 0})
+    monkeypatch.setattr(sounds, "_plugins_on", lambda t: list(fx.get(t, [])))
+
+    def fake_load(path, ch, roots):
+        fx[4].append("Fruity Reeverb 2")
+        return {"ok": True}
+    monkeypatch.setattr(sounds, "load_into_channel", fake_load)
+    verb = str(root / "Plugin presets/Effects/Fruity Reeverb 2/Drum Room.fst")
+    r = sounds.place(verb, 3, [root])
+    assert r["ok"] and r["mixer_track"] == 4 and len(r["effects"]) == 2
+    assert sounds.place(verb, 2, [root])["ok"] is False   # channel on master
+    monkeypatch.setattr(sounds, "load_into_channel", lambda p, ch, roots: {"ok": True})
+    assert sounds.place(verb, 3, [root])["ok"] is False   # nothing added
