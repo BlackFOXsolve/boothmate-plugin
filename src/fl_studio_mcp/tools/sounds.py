@@ -229,6 +229,20 @@ def assign_roles(names: list[str], roles: list[str], types: list | None = None) 
     return out
 
 
+def fill_spare_drums(plan: dict[str, int], roles: list[str], drum_roles, types: list) -> dict[str, int]:
+    """Drum parts with no matching channel get a spare sampler channel the
+    kit isn't using (e.g. an unused '808 Clap'). FL can't add channels from
+    a script, so reuse beats skipping. PURE."""
+    out = dict(plan)
+    used = set(out.values())
+    spare = [i for i, t in enumerate(types) if t in (CT_SAMPLER, CT_AUDIOCLIP) and i not in used]
+    for role in roles:
+        if role in out or role not in drum_roles or not spare:
+            continue
+        out[role] = spare.pop(0)
+    return out
+
+
 def pick_inserts(plan: dict[str, int], routing: dict[int, int], taken_by_others: set[int],
                  max_insert: int = 125) -> dict[str, int]:
     """Mixer insert per role: keep a channel's own insert if no other kit role
@@ -744,6 +758,7 @@ def register(mcp: FastMCP) -> None:
         roles = [r for r in list(kit["sounds"]) + list(kit.get("instruments", {}))]
         skip = {k.strip().lower() for k in (keep or [])}
         plan = assign_roles([c["name"] for c in chans], roles, [c["type"] for c in chans])
+        plan = fill_spare_drums(plan, roles, kit["sounds"], [c["type"] for c in chans])
         preview = safety.preview_write(tool="fl_load_kit", command=protocol.CMD_BROWSER,
                                        params={"op": "load_kit", "style": key, "plan": plan})
         if preview is not None:

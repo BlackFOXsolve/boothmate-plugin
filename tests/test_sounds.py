@@ -368,3 +368,10 @@ def test_browser_segments_for_fl_audio_folder(monkeypatch, tmp_path):
     f.write_bytes(b"x")
     monkeypatch.setattr(paths, "image_line_dirs", lambda: [il])
     assert sounds.browser_segments(str(f), []) == ["Audio", "BoothMate", "loop.wav"]
+
+
+def test_fill_spare_drums_uses_unused_samplers_only():
+    plan = {"Kick": 0, "Snare": 3, "Hi Hat": 2, "808": 4}
+    out = sounds.fill_spare_drums(plan, ["Kick", "Snare", "Hi Hat", "Open Hat", "808", "Keys"],
+                                  {"Kick", "Snare", "Hi Hat", "Open Hat", "808"}, [0, 0, 0, 0, 0, 2])
+    assert out["Open Hat"] == 1 and "Keys" not in out
