@@ -2,12 +2,13 @@
 // POST /api/preview { url } -> starts (or returns cached) teaser for the video
 // GET  /api/preview?v=<id> -> status / teaser
 // Cached per video and capped per visitor per day, so pasting is cheap for us.
-import { json, parseYouTube, youTubeInfo, previewStore, siteUrl } from "./lib/common.mjs";
+import { json, parseYouTube, youTubeInfo, previewStore, siteUrl, preflight } from "./lib/common.mjs";
 
 const DAILY_LIMIT = Number(process.env.PREVIEW_DAILY_LIMIT || 6);
 const STALE_MS = 5 * 60 * 1000;
 
 export default async (req, context) => {
+  const pre = preflight(req); if (pre) return pre;
   const db = previewStore();
   if (req.method === "GET") {
     const id = new URL(req.url).searchParams.get("v");

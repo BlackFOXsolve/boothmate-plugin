@@ -1,8 +1,9 @@
 // POST /api/checkout { url } -> { url: <Stripe Checkout> }
 // Checks the YouTube link first so nobody pays for a dead or private video.
-import { json, parseYouTube, youTubeInfo, stripe, siteUrl } from "./lib/common.mjs";
+import { json, parseYouTube, youTubeInfo, stripe, siteUrl, preflight } from "./lib/common.mjs";
 
 export default async (req) => {
+  const pre = preflight(req); if (pre) return pre;
   if (req.method !== "POST") return json(405, { error: "Use POST." });
   let body = {};
   try { body = await req.json(); } catch {}

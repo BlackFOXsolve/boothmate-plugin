@@ -1,11 +1,22 @@
 // Shared helpers for the Beat Breakdown functions.
 import { getStore } from "@netlify/blobs";
 
+// The landing page is also previewed inside Claude, so the two public endpoints
+// (free preview and checkout) answer cross-origin requests. No cookies are used.
+export const CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-headers": "content-type",
+  "access-control-max-age": "86400",
+};
+
 export const json = (status, body) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json", "cache-control": "no-store" },
+    headers: { "content-type": "application/json", "cache-control": "no-store", ...CORS },
   });
+
+export const preflight = (req) => (req.method === "OPTIONS" ? new Response(null, { status: 204, headers: CORS }) : null);
 
 // Accepts youtube.com/watch?v=, youtu.be/, /shorts/, /live/, m. and music. hosts.
 export function parseYouTube(input) {

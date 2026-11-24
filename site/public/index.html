@@ -155,9 +155,9 @@ html{scroll-behavior:smooth}
 @keyframes bmBlob3{0%,100%{transform:translate(0,0)}50%{transform:translate(90px,70px)}}
 @keyframes bmSheen{0%,55%{transform:translateX(-160%) skewX(-18deg)}80%,100%{transform:translateX(260%) skewX(-18deg)}}
 @keyframes bmLogoFloat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-10px) rotate(2deg)}}
-@keyframes bmTravel{0%{left:0;opacity:0}15%{opacity:1}85%{opacity:1}100%{left:100%;opacity:0}}
-@keyframes bmTravelBack{0%{left:100%;opacity:0}15%{opacity:1}85%{opacity:1}100%{left:0;opacity:0}}
-.bm-blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;pointer-events:none}
+@keyframes bmTravel{0%{transform:translateX(0);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translateX(100cqw);opacity:0}}
+@keyframes bmTravelBack{0%{transform:translateX(100cqw);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translateX(0);opacity:0}}
+.bm-blob{position:absolute;border-radius:50%;opacity:.55;pointer-events:none;-webkit-mask-image:radial-gradient(closest-side,#000 0%,rgba(0,0,0,.6) 45%,transparent 100%);mask-image:radial-gradient(closest-side,#000 0%,rgba(0,0,0,.6) 45%,transparent 100%);will-change:transform;transform:translateZ(0)}
 .bm-blob1{animation:bmBlob1 18s ease-in-out infinite}.bm-blob2{animation:bmBlob2 22s ease-in-out infinite}.bm-blob3{animation:bmBlob3 16s ease-in-out infinite}
 .bm-glass{position:relative;overflow:hidden;background:linear-gradient(140deg,rgba(255,255,255,.16),rgba(255,255,255,.04) 45%,rgba(255,255,255,.08));-webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);border:1px solid rgba(255,255,255,.2);box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 -1px 0 rgba(255,255,255,.08),inset 0 0 30px rgba(255,255,255,.04),0 40px 80px -36px rgba(0,0,0,.85);transition:transform .45s cubic-bezier(.2,.75,.2,1),border-color .3s,box-shadow .3s}
 .bm-glass::before{content:"";position:absolute;top:-20%;bottom:-20%;width:40%;left:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.22),transparent);animation:bmSheen 6s ease-in-out infinite;pointer-events:none}
@@ -166,8 +166,8 @@ html{scroll-behavior:smooth}
 .bm-glass-2::before{animation-delay:2s}.bm-glass-3::before{animation-delay:4s}
 .bm-logo-float{animation:bmLogoFloat 5s ease-in-out infinite;filter:drop-shadow(0 18px 24px rgba(0,0,0,.45))}
 .bm-glass-3 .bm-logo-float{animation-delay:-2.5s}
-.bm-conn{position:relative;height:2px;background:linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.35),rgba(255,255,255,.05))}
-.bm-conn > span{position:absolute;top:-4px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--acc);box-shadow:0 0 14px 3px var(--acc-a);animation:bmTravel 2.4s ease-in-out infinite}
+.bm-conn{position:relative;container-type:inline-size;height:2px;background:linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.35),rgba(255,255,255,.05))}
+.bm-conn > span{position:absolute;left:0;top:-4px;will-change:transform,opacity;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--acc);box-shadow:0 0 14px 3px var(--acc-a);animation:bmTravel 2.4s ease-in-out infinite}
 .bm-conn > span + span{animation:bmTravelBack 2.4s ease-in-out infinite 1.2s;background:#FFFFFF;box-shadow:0 0 14px 3px rgba(255,255,255,.5)}
 @media (max-width: 760px){.bm-conn{display:none}}
 
@@ -204,10 +204,10 @@ html{scroll-behavior:smooth}
 .bm-flowlogo img{max-width:64px;max-height:64px}
 
 @supports (animation-timeline: view()){
-.bm-reveal{animation:bmUp linear both;animation-timeline:view();animation-range:entry 0% cover 28%}
-.bm-reveal-l{animation:bmSlideL linear both;animation-timeline:view();animation-range:entry 0% cover 30%}
-.bm-reveal-r{animation:bmSlideR linear both;animation-timeline:view();animation-range:entry 0% cover 30%}
-.bm-reveal-pop{animation:bmPop linear both;animation-timeline:view();animation-range:entry 0% cover 25%}
+.bm-reveal{animation:bmUp linear both;animation-timeline:view();animation-range:entry 0% entry 100%}
+.bm-reveal-l{animation:bmSlideL linear both;animation-timeline:view();animation-range:entry 0% entry 100%}
+.bm-reveal-r{animation:bmSlideR linear both;animation-timeline:view();animation-range:entry 0% entry 100%}
+.bm-reveal-pop{animation:bmPop linear both;animation-timeline:view();animation-range:entry 0% entry 100%}
 .bm-step .bm-stepbar::after{animation:bmBar linear both;animation-timeline:view();animation-range:entry 10% cover 40%}
 }
 
@@ -249,7 +249,7 @@ BoothMate
 <a href="#setup" class="bm-btn bm-btn-p" style="background-color: {{accent}}; color: #0E0E11; text-decoration: none; font-weight: 600; padding: 14px 26px; border-radius: 12px; min-height: 48px; box-sizing: border-box; display: inline-flex; align-items: center">Get BoothMate free</a>
 <a href="#setup" class="bm-btn bm-btn-g" style="color: #ECECEF; text-decoration: none; font-weight: 500; padding: 14px 26px; border-radius: 12px; border: 1px solid #3A3A44; min-height: 48px; box-sizing: border-box; display: inline-flex; align-items: center">How setup works</a>
 </div>
-<p class="bm-in bm-d9" style="margin: 0; font-size: 14px; color: #8E8E99">For the Claude desktop app on Windows and Mac · FL Studio 20.7 or newer · Open source. Using Claude Code? <a href="https://github.com/BlackFOXsolve/boothmate-plugin#install">Install commands</a>.</p>
+<p class="bm-in bm-d9" style="margin: 0; font-size: 14px; color: #8E8E99">For the Claude desktop app on Windows and Mac · FL Studio 20.7 or newer · Open source. Using Claude Code? <a href="https://github.com/BlackFOXsolve/boothmate-plugin#install" target="_blank" rel="noopener">Install commands</a>.</p>
 </div>
 
 <div class="bm-r bm-d4" style="flex: 1 1 440px; min-width: 0">
@@ -533,8 +533,8 @@ BoothMate
 <h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 24px">{{stepTitle}}</h3>
 <p style="margin: 0; color: #B4B4BE">{{stepBody}}</p>
 <sc-if value="{{showDownload}}" hint-placeholder-val="{{ false }}"><div class="bm-pop" style="display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding-top: 10px">
-<a href="https://github.com/BlackFOXsolve/boothmate-plugin/raw/main/downloads/BoothMate-0.1.4.mcpb" class="bm-btn bm-btn-p bm-dl" style="background-color: {{accent}}; color: #0E0E11; text-decoration: none; font-weight: 600; padding: 14px 24px; border-radius: 12px; min-height: 48px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2v10M4.5 7.5L9 12l4.5-4.5M3 15.5h12" fill="none" stroke="#0E0E11" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Download BoothMate-0.1.4.mcpb</a>
-<span style="font-size: 14px; color: #8E8E99">Free · 426 KB · Windows and Mac. Using Claude Code? <a href="https://github.com/BlackFOXsolve/boothmate-plugin#install">Install commands</a></span>
+<a href="https://github.com/BlackFOXsolve/boothmate-plugin/raw/main/downloads/BoothMate-0.1.4.mcpb" target="_blank" rel="noopener" class="bm-btn bm-btn-p bm-dl" style="background-color: {{accent}}; color: #0E0E11; text-decoration: none; font-weight: 600; padding: 14px 24px; border-radius: 12px; min-height: 48px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2v10M4.5 7.5L9 12l4.5-4.5M3 15.5h12" fill="none" stroke="#0E0E11" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Download BoothMate-0.1.4.mcpb</a>
+<span style="font-size: 14px; color: #8E8E99">Free · 426 KB · Windows and Mac. Using Claude Code? <a href="https://github.com/BlackFOXsolve/boothmate-plugin#install" target="_blank" rel="noopener">Install commands</a></span>
 </div></sc-if>
 </div>
 <div style="display: flex; flex-wrap: wrap; gap: 10px">
@@ -646,7 +646,7 @@ BoothMate
 <span style="font-size: 13px; color: #8E8E99">You get the blueprint to make your own beat in this style, not the original beat or its audio.</span>
 </div>
 </div></sc-if>
-<p class="bm-z" style="margin: 0; font-size: 14px"><a href="/breakdown.html?sample=1" style="color: {{accent}}">See a full sample breakdown</a><span style="color: #8E8E99"> · checkout by Stripe</span></p>
+<p class="bm-z" style="margin: 0; font-size: 14px"><a href="{{siteBase}}/breakdown.html?sample=1" target="{{linkTarget}}" rel="noopener" style="color: {{accent}}">See a full sample breakdown</a><span style="color: #8E8E99"> · checkout by Stripe</span></p>
 </div>
 </div>
 
@@ -676,7 +676,16 @@ BoothMate
 <span style="color: #B4B4BE; font-size: 14px">The blueprint describes the style and approach. It never hands you the original melody, samples or drum pattern, so the beat you build is yours. Don't release a near-copy of someone else's beat.</span>
 </div>
 </div></div>
-<p style="margin: 14px 4px 0; font-size: 13px; color: #8E8E99">One breakdown per purchase. Results are estimates from what the analyser hears. If your breakdown can't be completed, you're refunded automatically; see our <a href="/refund.html" style="color: #B4B4BE">refund policy</a>. YouTube and Gemini are trademarks of Google LLC; BoothMate isn't affiliated with or endorsed by Google, YouTube or the producers whose beats you analyse. The rest of BoothMate stays free.</p>
+<p style="margin: 14px 4px 0; font-size: 13px; color: #8E8E99">One breakdown per purchase. Results are estimates from what the analyser hears. If your breakdown can't be completed, you're refunded automatically; see our <a href="#refund-policy" style="color: #B4B4BE">refund policy</a> below. YouTube and Gemini are trademarks of Google LLC; BoothMate isn't affiliated with or endorsed by Google, YouTube or the producers whose beats you analyse. The rest of BoothMate stays free.</p>
+<div id="refund-policy" class="bm-z" style="margin: 14px 4px 0; font-size: 14px; color: #B4B4BE; border: 1px solid #2A2A33; border-radius: 14px; padding: 14px 18px; background: rgba(14,14,17,.6)">
+<b style="color: #ECECEF; font-family: 'Space Grotesk', sans-serif; font-size: 16px">Refund policy</b>
+<div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px">
+<span><b style="color: #ECECEF">Automatic refunds.</b> If we can't complete your breakdown (the video can't be opened, or our analyser fails three times), you get a full refund automatically. You don't need to ask.</span>
+<span><b style="color: #ECECEF">Delivered breakdowns are final</b>, unless something went wrong: you were charged twice, the results are for a different video, the results page is empty or broken, or you paid and never got a results page.</span>
+<span>Tempo and key are estimates; a small difference from what you expected isn't a fault on its own. Ask within 14 days of purchase. We review every request and reply by email.</span>
+<a href="{{siteBase}}/refund.html#request" target="{{linkTarget}}" rel="noopener" style="align-self: flex-start; color: #ECECEF; font-weight: 600; border: 1px solid rgba(255,255,255,.25); border-radius: 10px; padding: 10px 16px; text-decoration: none">Request a refund</a>
+</div>
+</div>
 </div>
 
 </div>
@@ -684,16 +693,16 @@ BoothMate
 </section>
 
 <section style="max-width: 1200px; margin: 0 auto; padding: 112px 32px; display: flex; flex-direction: column; align-items: center; gap: 28px; text-align: center">
-<div class="bm-eq bm-reveal-pop" style="display: flex; gap: 6px; align-items: flex-end; height: 48px; width: 160px" aria-hidden="true">
+<div class="bm-eq" style="display: flex; gap: 6px; align-items: flex-end; height: 48px; width: 160px" aria-hidden="true">
 <div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div>
 </div>
-<h2 class="bm-reveal" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: clamp(40px, 5vw, 64px); line-height: 1.05; letter-spacing: -0.02em; max-width: 820px">Skip the studio bill. Keep the engineer.</h2>
-<div class="bm-reveal-pop"><a href="#setup" class="bm-btn bm-btn-p" style="background-color: {{accent}}; color: #0E0E11; text-decoration: none; font-weight: 600; padding: 16px 30px; border-radius: 12px; min-height: 52px; box-sizing: border-box; display: inline-flex; align-items: center; font-size: 18px">Get BoothMate free</a></div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: clamp(40px, 5vw, 64px); line-height: 1.05; letter-spacing: -0.02em; max-width: 820px">Skip the studio bill. Keep the engineer.</h2>
+<div><a href="#setup" class="bm-btn bm-btn-p" style="background-color: {{accent}}; color: #0E0E11; text-decoration: none; font-weight: 600; padding: 16px 30px; border-radius: 12px; min-height: 52px; box-sizing: border-box; display: inline-flex; align-items: center; font-size: 18px">Get BoothMate free</a></div>
 </section>
 
-<footer class="bm-reveal" style="border-top: 1px solid #22222A">
+<footer style="border-top: 1px solid #22222A">
 <div style="max-width: 1200px; margin: 0 auto; padding: 32px; display: flex; flex-wrap: wrap; gap: 12px 32px; justify-content: space-between; font-size: 14px; color: #8E8E99">
-<span>© 2026 Wilderfold LLC. BoothMate builds on <a href="https://github.com/rosasynthesiz/flstudio-mcp">flstudio-mcp</a> (MIT).</span>
+<span>© 2026 Wilderfold LLC. BoothMate builds on <a href="https://github.com/rosasynthesiz/flstudio-mcp" target="_blank" rel="noopener">flstudio-mcp</a> (MIT).</span>
 <span>FL Studio® and the FL Studio logo are registered trademarks of Image-Line Software. Claude is a trademark of Anthropic. BoothMate is not affiliated with or endorsed by either.</span>
 </div>
 </footer>
@@ -933,6 +942,10 @@ st() {
 const s = this.state || {};
 return { os: s.os || 'win', step: s.step || 0, playing: !!s.playing, cat: s.cat || 'start', copied: (s.copied === undefined ? -1 : s.copied), bbUrl: s.bbUrl || '', bbBusy: !!s.bbBusy, bbError: s.bbError || '', bbVideo: s.bbVideo || null, bbPreview: s.bbPreview || null, bbWaiting: !!s.bbWaiting, bbNote: s.bbNote || '', bbUnlockBusy: !!s.bbUnlockBusy };
 }
+bmOnSite() {
+try { const h = location.hostname || ''; return !!h && !/claudeusercontent\.com$|claude\.ai$|claude\.site$/.test(h); } catch (e) { return false; }
+}
+bmApi() { return this.bmOnSite() ? '' : 'https://boothmate-d4e6.netlify.app'; }
 componentDidMount() {
 this.timer = setInterval(() => {
 const st = this.st();
@@ -997,7 +1010,7 @@ const bbPoll = (id, tries) => {
   clearTimeout(this.bbT);
   this.bbT = setTimeout(async () => {
     try {
-      const r = await fetch('/api/preview?v=' + encodeURIComponent(id), { cache: 'no-store' });
+      const r = await fetch(this.bmApi() + '/api/preview?v=' + encodeURIComponent(id), { cache: 'no-store' });
       const j = await r.json();
       if (j.status === 'done') { this.setState({ bbPreview: j.preview, bbWaiting: false }); return; }
       if (j.status === 'error') { this.setState({ bbWaiting: false, bbNote: (j.error || 'The free preview didn’t work for this one.') + ' You can still unlock the full breakdown.' }); return; }
@@ -1013,17 +1026,17 @@ const bbGo = async (e) => {
   if (this.st().bbBusy) return;
   this.setState({ bbBusy: true, bbError: '', bbNote: '', bbPreview: null, bbVideo: null, bbWaiting: false });
   try {
-    const r = await fetch('/api/preview', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url }) });
+    const r = await fetch(this.bmApi() + '/api/preview', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url }) });
     let j = {};
     try { j = await r.json(); } catch (e2) {}
-    if (!j.video) { this.setState({ bbBusy: false, bbError: j.error || 'The free preview works on the live BoothMate site.' }); return; }
+    if (!j.video) { this.setState({ bbBusy: false, bbError: j.error || 'We couldn’t reach the preview service. Check your connection and try again.' }); return; }
     const patch = { bbBusy: false, bbVideo: j.video };
     if (j.status === 'done') patch.bbPreview = j.preview;
     else if (j.status === 'running') { patch.bbWaiting = true; bbPoll(j.video.id, 0); }
     else if (j.error) patch.bbNote = j.error;
     this.setState(patch);
   } catch (err) {
-    this.setState({ bbBusy: false, bbError: 'The free preview works on the live BoothMate site.' });
+    this.setState({ bbBusy: false, bbError: 'We couldn’t reach the preview service. Check your connection and try again.' });
   }
 };
 const bbUnlock = async () => {
@@ -1032,17 +1045,17 @@ const bbUnlock = async () => {
   if (!url || st2.bbUnlockBusy) return;
   this.setState({ bbUnlockBusy: true, bbError: '' });
   try {
-    const r = await fetch('/api/checkout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url }) });
+    const r = await fetch(this.bmApi() + '/api/checkout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url }) });
     let j = {};
     try { j = await r.json(); } catch (e2) {}
-    if (r.ok && j.url) { window.location.href = j.url; return; }
-    this.setState({ bbUnlockBusy: false, bbError: j.error || 'Checkout opens on the live BoothMate site.' });
+    if (r.ok && j.url) { if (this.bmOnSite()) { window.location.href = j.url; } else { window.open(j.url, '_blank', 'noopener'); this.setState({ bbUnlockBusy: false }); } return; }
+    this.setState({ bbUnlockBusy: false, bbError: j.error || 'We couldn’t open checkout. Check your connection and try again.' });
   } catch (err) {
-    this.setState({ bbUnlockBusy: false, bbError: 'Checkout opens on the live BoothMate site.' });
+    this.setState({ bbUnlockBusy: false, bbError: 'We couldn’t open checkout. Check your connection and try again.' });
   }
 };
 return {
-accent: accent, accentGlow: glow,
+accent: accent, accentGlow: glow, siteBase: this.bmApi(), linkTarget: this.bmOnSite() ? '_self' : '_blank',
 promptTabs: promptTabs, prompts: prompts,
 bbUrl: st.bbUrl, bbInput: (e) => this.setState({ bbUrl: e && e.target ? e.target.value : '', bbError: '' }), bbGo: bbGo, bbUnlock: bbUnlock, bbBusyAttr: st.bbBusy ? 'true' : 'false', bbBtnLabel: st.bbBusy ? 'Loading your beat…' : 'Preview it free', bbHasError: !!st.bbError, bbError: st.bbError,
 bbHasVideo: !!st.bbVideo, bbEmbed: st.bbVideo ? 'https://www.youtube-nocookie.com/embed/' + st.bbVideo.id + '?rel=0' : '', bbVideoTitle: st.bbVideo ? (st.bbVideo.title || 'Your beat') : '',
