@@ -1,0 +1,39 @@
+import { JSDOM } from "jsdom";
+import { readFileSync } from "node:fs";
+const html = readFileSync("public/breakdown.html", "utf8");
+const sample = JSON.parse(readFileSync("public/sample-breakdown.json", "utf8"));
+async function run(url, responder) {
+  const dom = new JSDOM(html, { url, runScripts: "outside-only" });
+  const w = dom.window; const seen = [];
+  w.fetch = async (u, o = {}) => { seen.push((o.method || "GET") + " " + u); const j = responder(u, o, seen); return { ok: true, json: async () => j }; };
+  w.setTimeout = (f, ms) => setTimeout(f, Math.min(ms, 5));
+  w.navigator.clipboard = { writeText: async (t) => { w.__copied = t; } };
+  w.eval(html.match(/<script>([\s\S]*)<\/script>/)[1]);
+  await new Promise(r => setTimeout(r, 120));
+  return { w, seen, text: w.document.getElementById("main").textContent };
+}
+const out = {};
+let r = await run("https://x.example/breakdown.html?sample=1", () => sample);
+out.sample = r.text.includes("Melodic Trap") && r.text.includes("180 BPM") && r.w.document.querySelectorAll("ol.prompts li").length === 7;
+r.w.document.getElementById("copyAll").click(); await new Promise(r2 => setTimeout(r2, 20));
+out.copyAll = (r.w.__copied || "").split("\n").length === 7;
+let n = 0;
+r = await run("https://x.example/breakdown.html?session_id=cs_test_1", (u, o) => {
+  if (o.method === "POST") return { status: "running", video: sample.video };
+  n++; if (n === 1) return { status: "not_started", video: sample.video };
+  if (n < 4) return { status: "running", video: sample.video };
+  return sample;
+});
+await new Promise(res => setTimeout(res, 200));
+out.flow = r.seen.slice(0, 3).join(" | ");
+out.flowDone = r.w.document.getElementById("main").textContent.includes("Your BoothMate prompts");
+r = await run("https://x.example/breakdown.html?session_id=cs_test_2", () => ({ status: "error", error: "Gemini couldn't open this video.", canRetry: true, video: sample.video }));
+out.errorRetry = !!r.w.document.getElementById("retry") && r.text.includes("couldn't open");
+r = await run("https://x.example/breakdown.html", () => ({}));
+out.noSession = r.text.includes("needs the link");
+r = await run("https://x.example/breakdown.html?session_id=cs_x", () => ({ status: "unpaid" }));
+out.unpaid = r.text.includes("couldn't find a completed payment");
+const xss = JSON.parse(JSON.stringify(sample)); xss.result.style = '<img src=x onerror=alert(1)>';
+r = await run("https://x.example/breakdown.html?sample=1", () => xss);
+out.escaped = !r.w.document.querySelector("main img[src=x]");
+console.log(JSON.stringify(out, null, 1));

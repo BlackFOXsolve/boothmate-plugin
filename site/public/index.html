@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BoothMate: make beats in FL Studio by talking to Claude</title>
+<meta name="description" content="Free Claude plugin for FL Studio. Ask for a beat in plain words and BoothMate writes the drums, 808s and chords. Plus Beat Breakdown: paste a YouTube link, get the blueprint.">
+<meta property="og:title" content="BoothMate: make beats in FL Studio by talking to Claude">
+<meta property="og:description" content="Free Claude plugin for FL Studio. Ask for a beat in plain words and BoothMate writes the drums, 808s and chords. Plus Beat Breakdown: paste a YouTube link, get the blueprint.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0E0E11">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0E0E11}
+a{color:#C6F432}a:hover{color:#E2FF8A}
+html{scroll-behavior:smooth}
+
+@keyframes bmUp{from{opacity:0;transform:translateY(32px)}to{opacity:1;transform:none}}
+@keyframes bmDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:none}}
+@keyframes bmPop{0%{opacity:0;transform:translateY(14px) scale(.94)}70%{opacity:1;transform:translateY(-2px) scale(1.01)}100%{opacity:1;transform:none}}
+@keyframes bmSlideL{from{opacity:0;transform:translateX(-36px)}to{opacity:1;transform:none}}
+@keyframes bmSlideR{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:none}}
+@keyframes bmEq{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+@keyframes bmPulse{0%{box-shadow:0 0 0 0 var(--acc-a)}100%{box-shadow:0 0 0 12px transparent}}
+@keyframes bmMarquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes bmFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes bmGlow{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 34px 2px var(--acc-a)}}
+@keyframes bmChord{0%,22%{background:var(--acc);color:#0E0E11;border-color:var(--acc)}25%,100%{background:#0E0E11;color:#ECECEF;border-color:#3A3A44}}
+@keyframes bmRow{0%,18%{border-color:var(--acc);transform:translateX(8px)}20%,100%{border-color:#2A2A33;transform:none}}
+@keyframes bmRowTxt{0%,18%{color:var(--acc)}20%,100%{color:#8E8E99}}
+@keyframes bmBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes bmCaret{50%{opacity:0}}
+@keyframes bmSpin{to{transform:rotate(360deg)}}
+@keyframes bmShine{from{background-position:200% 0}to{background-position:-200% 0}}
+@keyframes bmBlink{0%,100%{opacity:1}50%{opacity:.35}}
+
+.bm-in{animation:bmUp .9s cubic-bezier(.2,.75,.2,1) both}
+.bm-down{animation:bmDown .7s cubic-bezier(.2,.75,.2,1) both}
+.bm-pop{animation:bmPop .6s cubic-bezier(.2,.75,.2,1) both}
+.bm-l{animation:bmSlideL .8s cubic-bezier(.2,.75,.2,1) both}
+.bm-r{animation:bmSlideR .9s cubic-bezier(.2,.75,.2,1) both}
+.bm-word{display:inline-block;animation:bmUp .9s cubic-bezier(.2,.75,.2,1) both}
+.bm-d1{animation-delay:.1s}.bm-d2{animation-delay:.2s}.bm-d3{animation-delay:.3s}.bm-d4{animation-delay:.4s}
+.bm-d5{animation-delay:.5s}.bm-d6{animation-delay:.65s}.bm-d7{animation-delay:.8s}.bm-d8{animation-delay:.95s}
+.bm-d9{animation-delay:1.1s}.bm-d10{animation-delay:1.6s}.bm-d11{animation-delay:2.2s}.bm-d12{animation-delay:2.9s}
+.bm-d13{animation-delay:3.5s}.bm-d14{animation-delay:4.1s}
+
+.bm-float{animation:bmFloat 6s ease-in-out infinite}
+.bm-dot{animation:bmPulse 1.6s ease-out infinite}
+.bm-live{animation:bmBlink 2s ease-in-out infinite}
+
+.bm-eq > div{transform-origin:bottom;animation:bmEq 1s ease-in-out infinite}
+.bm-eq > div:nth-child(3n){animation-duration:.8s}
+.bm-eq > div:nth-child(3n+1){animation-duration:1.25s}
+.bm-eq > div:nth-child(2){animation-delay:-.3s}.bm-eq > div:nth-child(4){animation-delay:-.6s}
+.bm-eq > div:nth-child(5){animation-delay:-.15s}.bm-eq > div:nth-child(6){animation-delay:-.75s}
+.bm-eq > div:nth-child(7){animation-delay:-.45s}.bm-eq > div:nth-child(8){animation-delay:-.9s}
+.bm-eq > div:nth-child(9){animation-delay:-.2s}.bm-eq > div:nth-child(10){animation-delay:-.55s}
+.bm-eq > div:nth-child(11){animation-delay:-.35s}.bm-eq > div:nth-child(12){animation-delay:-.7s}
+
+.bm-logo rect.bm-lb{transform-box:fill-box;transform-origin:bottom;animation:bmEq 1.1s ease-in-out infinite}
+.bm-logo rect.bm-lb:nth-of-type(3){animation-delay:-.4s}
+.bm-logo rect.bm-lb:nth-of-type(4){animation-delay:-.8s}
+.bm-logo rect.bm-ring{transform-box:fill-box;transform-origin:center}
+.bm-logo:hover rect.bm-ring{animation:bmSpin 1.2s cubic-bezier(.5,0,.3,1)}
+
+.bm-chord{animation:bmChord 4s linear infinite}
+.bm-chord:nth-child(2){animation-delay:1s}.bm-chord:nth-child(3){animation-delay:2s}.bm-chord:nth-child(4){animation-delay:3s}
+
+.bm-caret{display:inline-block;width:2px;height:1em;background:var(--acc);margin-left:3px;vertical-align:-2px;animation:bmCaret 1s steps(1) infinite}
+
+.bm-marquee{display:flex;width:max-content;animation:bmMarquee 28s linear infinite}
+.bm-strip:hover .bm-marquee{animation-play-state:paused}
+.bm-genre{transition:color .25s,transform .25s;display:inline-block}
+.bm-genre:hover{color:var(--acc);transform:translateY(-3px) scale(1.06)}
+
+.bm-row{animation:bmRow 10s ease-in-out infinite;transition:background .25s}
+.bm-row .bm-rowtxt{animation:bmRowTxt 10s ease-in-out infinite}
+.bm-row:nth-child(2),.bm-row:nth-child(2) .bm-rowtxt{animation-delay:2s}
+.bm-row:nth-child(3),.bm-row:nth-child(3) .bm-rowtxt{animation-delay:4s}
+.bm-row:nth-child(4),.bm-row:nth-child(4) .bm-rowtxt{animation-delay:6s}
+.bm-row:nth-child(5),.bm-row:nth-child(5) .bm-rowtxt{animation-delay:8s}
+.bm-row:hover{background:#1E1E25!important}
+
+.bm-card{transition:transform .3s cubic-bezier(.2,.75,.2,1),border-color .3s,background .3s,box-shadow .3s}
+.bm-card:hover{transform:translateY(-8px);border-color:var(--acc)!important;background:#1C1C23!important;box-shadow:0 20px 40px -24px var(--acc-a)}
+.bm-card .bm-num{transition:transform .3s;display:inline-block}
+.bm-card:hover .bm-num{transform:translateX(6px) scale(1.15)}
+
+.bm-btn{transition:transform .2s,box-shadow .25s,background .25s,border-color .25s}
+.bm-btn:hover{transform:translateY(-3px)}
+.bm-btn-p{background-image:linear-gradient(110deg,transparent 40%,rgba(255,255,255,.45) 50%,transparent 60%);background-size:250% 100%;animation:bmShine 3.5s linear infinite,bmGlow 3.5s ease-in-out infinite}
+.bm-btn-p:hover{box-shadow:0 14px 34px -10px var(--acc)}
+.bm-btn-g:hover{border-color:var(--acc)!important;color:var(--acc)!important}
+
+.bm-nav{position:relative;transition:color .2s}
+.bm-nav::after{content:"";position:absolute;left:0;right:0;bottom:-4px;height:2px;background:var(--acc);transform:scaleX(0);transform-origin:left;transition:transform .3s cubic-bezier(.2,.75,.2,1)}
+.bm-nav:hover{color:#ECECEF!important}.bm-nav:hover::after{transform:scaleX(1)}
+
+.bm-stepbar{height:2px;background:#3A3A44;position:relative;overflow:hidden}
+.bm-stepbar::after{content:"";position:absolute;inset:0;background:var(--acc);transform-origin:left;animation:bmBar 1.2s cubic-bezier(.2,.75,.2,1) both}
+.bm-step:nth-child(2) .bm-stepbar::after{animation-delay:.5s}
+.bm-step:nth-child(3) .bm-stepbar::after{animation-delay:1s}
+.bm-step .bm-stepnum{transition:transform .3s,color .3s;display:inline-block}
+.bm-step:hover .bm-stepnum{transform:scale(1.2) rotate(-6deg);color:var(--acc)!important}
+
+.bm-faq{transition:transform .25s,border-color .25s}
+.bm-faq:hover{transform:translateX(10px);border-color:var(--acc)!important}
+.bm-faq:hover h3{color:var(--acc)}
+.bm-faq h3{transition:color .25s}
+
+.bm-chip{transition:transform .25s,border-color .25s}
+.bm-chip:hover{transform:scale(1.05);border-color:var(--acc)!important}
+
+
+@keyframes bmType{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes bmPoint{0%{opacity:0;transform:translate(90px,70px)}55%{opacity:1;transform:translate(0,0)}65%{transform:scale(.8)}75%,100%{opacity:1;transform:scale(1)}}
+@keyframes bmRing{0%,60%{box-shadow:0 0 0 0 transparent}70%{box-shadow:0 0 0 6px var(--acc-a)}100%{box-shadow:0 0 0 14px transparent}}
+@keyframes bmToggle{0%,60%{background:#3A3A44}70%,100%{background:var(--acc)}}
+@keyframes bmKnob{0%,60%{transform:translateX(0)}70%,100%{transform:translateX(20px)}}
+@keyframes bmProg{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.bm-type{animation:bmType 1.6s steps(48) both .3s}
+.bm-out{animation:bmUp .5s both 2s}
+.bm-out2{animation:bmUp .5s both 2.6s}
+.bm-ptr{position:absolute;right:-18px;bottom:-22px;width:26px;height:26px;pointer-events:none;animation:bmPoint 1.8s cubic-bezier(.2,.75,.2,1) both .5s;z-index:2}
+.bm-target{position:relative;animation:bmRing 1.8s ease-out both .5s}
+.bm-tog{animation:bmToggle 1.8s both .5s}
+.bm-tog > span{animation:bmKnob 1.8s cubic-bezier(.2,.75,.2,1) both .5s}
+.bm-screen > *{animation:bmPop .5s cubic-bezier(.2,.75,.2,1) both}
+.bm-row1{animation:bmUp .5s both .9s}.bm-row2{animation:bmUp .5s both 1.5s}
+.bm-prog{transform-origin:left;animation:bmProg 5s linear both}
+.bm-pill{transition:background .25s,border-color .25s,color .25s,transform .2s}
+.bm-pill:hover{transform:translateY(-2px)}
+.bm-tbtn{transition:background .2s,border-color .2s,color .2s,transform .2s;cursor:pointer;font:inherit}
+.bm-tbtn:hover{transform:translateY(-2px);border-color:var(--acc)!important}
+.bm-tbtn:disabled{opacity:.35;cursor:default;transform:none}
+
+
+@keyframes bmLinkType{0%,6%{clip-path:inset(0 100% 0 0)}30%,92%{clip-path:inset(0 0 0 0)}100%{clip-path:inset(0 100% 0 0)}}
+@keyframes bmChipLoop{0%,34%{opacity:0;transform:translateY(10px) scale(.95)}40%,90%{opacity:1;transform:none}96%,100%{opacity:0;transform:translateY(-6px)}}
+@keyframes bmScan{0%,30%{transform:scaleX(0)}55%,90%{transform:scaleX(1)}100%{transform:scaleX(0)}}
+@keyframes bmSoonGlow{0%,100%{border-color:#2A2A33}50%{border-color:var(--acc)}}
+.bm-link{animation:bmLinkType 9s steps(42) infinite}
+.bm-scan{transform-origin:left;animation:bmScan 9s ease-in-out infinite}
+.bm-chips > *{animation:bmChipLoop 9s ease-out infinite}
+.bm-chips > *:nth-child(2){animation-delay:.25s}.bm-chips > *:nth-child(3){animation-delay:.5s}
+.bm-chips > *:nth-child(4){animation-delay:.75s}.bm-chips > *:nth-child(5){animation-delay:1s}
+.bm-soon{animation:bmSoonGlow 4s ease-in-out infinite}
+
+
+@keyframes bmBlob1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(120px,-60px) scale(1.15)}66%{transform:translate(-80px,50px) scale(.9)}}
+@keyframes bmBlob2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-140px,40px) scale(1.2)}}
+@keyframes bmBlob3{0%,100%{transform:translate(0,0)}50%{transform:translate(90px,70px)}}
+@keyframes bmSheen{0%,55%{transform:translateX(-160%) skewX(-18deg)}80%,100%{transform:translateX(260%) skewX(-18deg)}}
+@keyframes bmLogoFloat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-10px) rotate(2deg)}}
+@keyframes bmTravel{0%{left:0;opacity:0}15%{opacity:1}85%{opacity:1}100%{left:100%;opacity:0}}
+@keyframes bmTravelBack{0%{left:100%;opacity:0}15%{opacity:1}85%{opacity:1}100%{left:0;opacity:0}}
+.bm-blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;pointer-events:none}
+.bm-blob1{animation:bmBlob1 18s ease-in-out infinite}.bm-blob2{animation:bmBlob2 22s ease-in-out infinite}.bm-blob3{animation:bmBlob3 16s ease-in-out infinite}
+.bm-glass{position:relative;overflow:hidden;background:linear-gradient(140deg,rgba(255,255,255,.16),rgba(255,255,255,.04) 45%,rgba(255,255,255,.08));-webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);border:1px solid rgba(255,255,255,.2);box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 -1px 0 rgba(255,255,255,.08),inset 0 0 30px rgba(255,255,255,.04),0 40px 80px -36px rgba(0,0,0,.85);transition:transform .45s cubic-bezier(.2,.75,.2,1),border-color .3s,box-shadow .3s}
+.bm-glass::before{content:"";position:absolute;top:-20%;bottom:-20%;width:40%;left:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.22),transparent);animation:bmSheen 6s ease-in-out infinite;pointer-events:none}
+.bm-glass::after{content:"";position:absolute;inset:0;border-radius:inherit;background:radial-gradient(120% 60% at 30% 0%,rgba(255,255,255,.18),transparent 55%);pointer-events:none}
+.bm-glass:hover{transform:translateY(-10px) scale(1.02);border-color:rgba(255,255,255,.38)}
+.bm-glass-2::before{animation-delay:2s}.bm-glass-3::before{animation-delay:4s}
+.bm-logo-float{animation:bmLogoFloat 5s ease-in-out infinite;filter:drop-shadow(0 18px 24px rgba(0,0,0,.45))}
+.bm-glass-3 .bm-logo-float{animation-delay:-2.5s}
+.bm-conn{position:relative;height:2px;background:linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.35),rgba(255,255,255,.05))}
+.bm-conn > span{position:absolute;top:-4px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--acc);box-shadow:0 0 14px 3px var(--acc-a);animation:bmTravel 2.4s ease-in-out infinite}
+.bm-conn > span + span{animation:bmTravelBack 2.4s ease-in-out infinite 1.2s;background:#FFFFFF;box-shadow:0 0 14px 3px rgba(255,255,255,.5)}
+@media (max-width: 760px){.bm-conn{display:none}}
+
+
+.bm-glass-still:hover{transform:none}
+.bm-glass > li,.bm-glass > button,.bm-glass > sc-for{position:relative;z-index:1}
+.bm-z{position:relative;z-index:1}
+@keyframes bmDlPulse{0%,100%{box-shadow:0 0 0 0 var(--acc-a)}50%{box-shadow:0 0 0 10px transparent,0 0 30px 4px var(--acc-a)}}
+.bm-dl{animation:bmDlPulse 2.2s ease-in-out infinite,bmShine 3.5s linear infinite}
+.bm-glass-pill{-webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}
+
+
+@keyframes bmCopied{0%{transform:scale(.9);opacity:0}40%{transform:scale(1.06);opacity:1}100%{transform:scale(1);opacity:1}}
+.bm-pcard{transition:transform .3s cubic-bezier(.2,.75,.2,1),border-color .3s,box-shadow .3s}
+.bm-pcard:hover{transform:translateY(-6px) scale(1.01);border-color:rgba(255,255,255,.38)!important;box-shadow:0 22px 44px -26px var(--acc-a)}
+.bm-pcard .bm-quote{transition:color .25s}
+.bm-pcard:hover .bm-quote{color:#FFFFFF}
+.bm-copied{animation:bmCopied .45s cubic-bezier(.2,.75,.2,1) both}
+.bm-pgrid > *{animation:bmPop .55s cubic-bezier(.2,.75,.2,1) both}
+.bm-pgrid > *:nth-child(2){animation-delay:.07s}.bm-pgrid > *:nth-child(3){animation-delay:.14s}
+.bm-pgrid > *:nth-child(4){animation-delay:.21s}.bm-pgrid > *:nth-child(5){animation-delay:.28s}
+.bm-pgrid > *:nth-child(6){animation-delay:.35s}
+
+@supports (animation-timeline: view()){
+.bm-reveal{animation:bmUp linear both;animation-timeline:view();animation-range:entry 0% cover 28%}
+.bm-reveal-l{animation:bmSlideL linear both;animation-timeline:view();animation-range:entry 0% cover 30%}
+.bm-reveal-r{animation:bmSlideR linear both;animation-timeline:view();animation-range:entry 0% cover 30%}
+.bm-reveal-pop{animation:bmPop linear both;animation-timeline:view();animation-range:entry 0% cover 25%}
+.bm-step .bm-stepbar::after{animation:bmBar linear both;animation-timeline:view();animation-range:entry 10% cover 40%}
+}
+
+@media (prefers-reduced-motion: reduce){
+*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+</style>
+<script src="/morphdom.min.js" defer></script>
+<script src="/dc-lite.js" defer></script>
+</head>
+<body>
+<div id="app"></div>
+<noscript><p style="color:#ECECEF;font-family:system-ui;padding:32px">BoothMate's site needs JavaScript. You can also get BoothMate on <a href="https://github.com/BlackFOXsolve/boothmate-plugin">GitHub</a>.</p></noscript>
+<template id="tpl">
+<div style="--acc: {{accent}}; --acc-a: {{accentGlow}}; background: #0E0E11; color: #ECECEF; font-family: Inter, system-ui, sans-serif; font-size: 17px; line-height: 1.6; min-height: 100vh; overflow-x: hidden">
+
+<header class="bm-down" style="max-width: 1200px; margin: 0 auto; padding: 24px 32px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between">
+<a href="#top" class="bm-logo" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #ECECEF; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 22px">
+<svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect class="bm-ring" x="1" y="1" width="26" height="26" rx="7" fill="none" stroke="{{accent}}" stroke-width="2"></rect><rect class="bm-lb" x="7" y="13" width="3" height="8" rx="1" fill="{{accent}}"></rect><rect class="bm-lb" x="12.5" y="8" width="3" height="13" rx="1" fill="{{accent}}"></rect><rect class="bm-lb" x="18" y="11" width="3" height="10" rx="1" fill="{{accent}}"></rect></svg>
+BoothMate
+</a>
+<nav style="display: flex; flex-wrap: wrap; gap: 28px; align-items: center; font-size: 15px">
+<a href="#features" class="bm-nav" style="color: #B4B4BE; text-decoration: none">Features</a>
+<a href="#booth" class="bm-nav" style="color: #B4B4BE; text-decoration: none">In the booth</a>
+<a href="#prompts" class="bm-nav" style="color: #B4B4BE; text-decoration: none">Prompts</a>
+<a href="#beat-breakdown" class="bm-nav" style="color: #B4B4BE; text-decoration: none">Beat Breakdown</a>
+<a href="#setup" class="bm-nav" style="color: #B4B4BE; text-decoration: none">Setup</a>
+<a href="#faq" class="bm-nav" style="color: #B4B4BE; text-decoration: none">FAQ</a>
+<a href="#setup" class="bm-btn bm-btn-p" style="color: #0E0E11; background-color: {{accent}}; padding: 10px 18px; border-radius: 10px; text-decoration: none; font-weight: 600; min-height: 44px; box-sizing: border-box; display: inline-flex; align-items: center">Get it free</a>
+</nav>
+</header>
+
+<section id="top" style="max-width: 1200px; margin: 0 auto; padding: 72px 32px 96px; display: flex; flex-wrap: wrap; gap: 56px; align-items: center">
+<div style="flex: 1 1 460px; min-width: 0; display: flex; flex-direction: column; gap: 24px">
+<div class="bm-pop bm-d1" style="align-self: flex-start; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: {{accent}}; border: 1px solid #3A3A44; padding: 6px 12px; border-radius: 999px; display: flex; align-items: center; gap: 8px"><span class="bm-live" style="width: 6px; height: 6px; border-radius: 50%; background: {{accent}}"></span>Free Claude plugin for FL Studio</div>
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: clamp(44px, 6vw, 76px); line-height: 1.02; letter-spacing: -0.02em"><span class="bm-word bm-d2">Your</span> <span class="bm-word bm-d3">engineer</span> <span class="bm-word bm-d4">behind</span> <span class="bm-word bm-d5">the</span> <span class="bm-word bm-d6" style="color: {{accent}}">glass.</span></h1>
+<p class="bm-in bm-d7" style="margin: 0; font-size: 20px; color: #B4B4BE; max-width: 540px">Tell Claude what you hear in your head. BoothMate builds the beat in FL Studio: drums, chords and 808s in your key. Then it runs the session while you record. No menus, no tutorials, no studio bill.</p>
+<div class="bm-in bm-d8" style="display: flex; flex-wrap: wrap; gap: 14px; padding-top: 8px">
+<a href="#setup" class="bm-btn bm-btn-p" style="background-color: {{accent}}; color: #0E0E11; text-decoration: none; font-weight: 600; padding: 14px 26px; border-radius: 12px; min-height: 48px; box-sizing: border-box; display: inline-flex; align-items: center">Get BoothMate free</a>
+<a href="#setup" class="bm-btn bm-btn-g" style="color: #ECECEF; text-decoration: none; font-weight: 500; padding: 14px 26px; border-radius: 12px; border: 1px solid #3A3A44; min-height: 48px; box-sizing: border-box; display: inline-flex; align-items: center">How setup works</a>
+</div>
+<p class="bm-in bm-d9" style="margin: 0; font-size: 14px; color: #8E8E99">For the Claude desktop app on Windows and Mac · FL Studio 20.7 or newer · Open source. Using Claude Code? <a href="https://github.com/BlackFOXsolve/boothmate-plugin#install">Install commands</a>.</p>
+</div>
+
+<div class="bm-r bm-d4" style="flex: 1 1 440px; min-width: 0">
+<div class="bm-float" style="background: #17171C; border: 1px solid #2A2A33; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 40px 80px -40px rgba(0,0,0,.8)">
+<div class="bm-pop bm-d6" style="display: flex; gap: 8px; align-items: center; font-size: 13px; color: #8E8E99"><span class="bm-dot" style="width: 8px; height: 8px; border-radius: 50%; background: {{accent}}"></span>Connected to FL Studio</div>
+<div class="bm-pop bm-d9" style="align-self: flex-end; max-width: 85%; background: #2A2A33; padding: 12px 16px; border-radius: 14px 14px 4px 14px">Make me a dark trap beat in F# minor.</div>
+<div class="bm-pop bm-d10" style="max-width: 92%; background: #1E1E25; border: 1px solid #2A2A33; padding: 14px 16px; border-radius: 14px 14px 14px 4px; display: flex; flex-direction: column; gap: 10px">
+<div>On it: trap at 140 BPM, F# minor, dark progression.</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; font-family: 'Space Grotesk', sans-serif; font-weight: 600; text-align: center">
+<div class="bm-chord" style="background: #0E0E11; border: 1px solid #3A3A44; border-radius: 8px; padding: 8px 0">F#m</div>
+<div class="bm-chord" style="background: #0E0E11; border: 1px solid #3A3A44; border-radius: 8px; padding: 8px 0">D</div>
+<div class="bm-chord" style="background: #0E0E11; border: 1px solid #3A3A44; border-radius: 8px; padding: 8px 0">Bm</div>
+<div class="bm-chord" style="background: #0E0E11; border: 1px solid #3A3A44; border-radius: 8px; padding: 8px 0">C#</div>
+</div>
+<div style="font-size: 15px; color: #B4B4BE">Drums programmed, chords on Keys, 808 locked to the kick. Hit play.</div>
+</div>
+<div class="bm-pop bm-d11" style="align-self: flex-end; max-width: 85%; background: #2A2A33; padding: 12px 16px; border-radius: 14px 14px 4px 14px">Make the 808 slide like drill.</div>
+<div class="bm-pop bm-d12" style="max-width: 92%; background: #1E1E25; border: 1px solid #2A2A33; padding: 12px 16px; border-radius: 14px 14px 14px 4px">Done. Slides on the last hit of every bar.</div>
+<div class="bm-pop bm-d13" style="align-self: flex-end; max-width: 85%; background: #2A2A33; padding: 12px 16px; border-radius: 14px 14px 4px 14px">Run it back.<span class="bm-caret" aria-hidden="true"></span></div>
+<div class="bm-eq bm-pop bm-d14" style="display: flex; gap: 6px; align-items: flex-end; height: 40px; padding: 0 4px" aria-hidden="true">
+<div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div>
+</div>
+</div>
+</div>
+</section>
+
+<section id="works-with" style="position: relative; overflow: hidden; padding: 104px 32px 112px">
+<div class="bm-blob bm-blob1" style="width: 420px; height: 420px; left: 6%; top: 12%; background: #FF7A1A" aria-hidden="true"></div>
+<div class="bm-blob bm-blob2" style="width: 380px; height: 380px; right: 8%; top: 20%; background: #D97757" aria-hidden="true"></div>
+<div class="bm-blob bm-blob3" style="width: 340px; height: 340px; left: 40%; top: 35%; background: {{accent}}; opacity: .35" aria-hidden="true"></div>
+<div style="position: relative; max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 56px">
+<div class="bm-reveal" style="display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; max-width: 640px">
+<div style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: {{accent}}">Compatible with</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: clamp(34px, 4vw, 48px); line-height: 1.1">Built for the tools you already use.</h2>
+<p style="margin: 0; color: #B4B4BE; font-size: 19px">BoothMate connects FL Studio to Claude, so the two work as one studio.</p>
+</div>
+
+<div style="width: 100%; display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: center">
+<div class="bm-glass bm-reveal-pop" style="flex: 0 1 300px; min-width: 240px; border-radius: 32px; padding: 36px 28px 30px; display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center">
+<div style="height: 170px; display: flex; align-items: center; justify-content: center"><img class="bm-logo-float" src="/assets/168aa8759660cad4f1d54c258c4505c5.png" alt="FL Studio logo" style="height: 160px; width: auto"></div>
+<div style="display: flex; flex-direction: column; gap: 4px; position: relative; z-index: 1">
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 24px">FL Studio</h3>
+<p style="margin: 0; color: #C9C9D2; font-size: 15px">20.7 or newer · Windows and Mac</p>
+</div>
+</div>
+
+<div class="bm-conn" style="flex: 1 1 60px; max-width: 120px" aria-hidden="true"><span></span><span></span></div>
+
+<div class="bm-glass bm-glass-2 bm-reveal-pop" style="flex: none; width: 150px; height: 150px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px">
+<svg class="bm-logo" width="56" height="56" viewBox="0 0 28 28" aria-hidden="true" style="position: relative; z-index: 1"><rect class="bm-ring" x="1" y="1" width="26" height="26" rx="7" fill="none" stroke="{{accent}}" stroke-width="2"></rect><rect class="bm-lb" x="7" y="13" width="3" height="8" rx="1" fill="{{accent}}"></rect><rect class="bm-lb" x="12.5" y="8" width="3" height="13" rx="1" fill="{{accent}}"></rect><rect class="bm-lb" x="18" y="11" width="3" height="10" rx="1" fill="{{accent}}"></rect></svg>
+<span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px; position: relative; z-index: 1">BoothMate</span>
+</div>
+
+<div class="bm-conn" style="flex: 1 1 60px; max-width: 120px" aria-hidden="true"><span></span><span></span></div>
+
+<div class="bm-glass bm-glass-3 bm-reveal-pop" style="flex: 0 1 300px; min-width: 240px; border-radius: 32px; padding: 36px 28px 30px; display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center">
+<div style="height: 170px; display: flex; align-items: center; justify-content: center"><img class="bm-logo-float" src="/assets/1dde42e3173bbc81975d820d3de1851b.png" alt="Claude mascot" style="width: 200px; height: auto"></div>
+<div style="display: flex; flex-direction: column; gap: 4px; position: relative; z-index: 1">
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 24px">Claude</h3>
+<p style="margin: 0; color: #C9C9D2; font-size: 15px">Desktop app and Claude Code</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<section class="bm-strip bm-in bm-d9" style="border-top: 1px solid #22222A; border-bottom: 1px solid #22222A; background: #121216; overflow: hidden" aria-label="Genres">
+<div class="bm-marquee" style="padding: 28px 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 22px; color: #B4B4BE">
+<div style="display: flex; gap: 40px; padding-right: 40px; align-items: center">
+<span class="bm-genre">Trap</span><span style="color: #3A3A44" aria-hidden="true">/</span><span class="bm-genre">Drill</span><span style="color: #3A3A44" aria-hidden="true">/</span><span class="bm-genre">Boom bap</span><span style="color: #3A3A44" aria-hidden="true">/</span><span class="bm-genre">R&amp;B</span><span style="color: #3A3A44" aria-hidden="true">/</span><span class="bm-genre">Lo-fi</span><span style="color: #3A3A44" aria-hidden="true">/</span><span class="bm-genre">Jersey club</span><span style="color: #3A3A44" aria-hidden="true">/</span>
+<span class="bm-genre">Trap</span><span style="color: #3A3A44" aria-hidden="true">/</span><span class="bm-genre">Drill</span><span style="color: #3A3A44" aria-hidden="true">/</span><span class="bm-genre">Boom bap</span><span style="color: #3A3A44" aria-hidden="true">/</span><span class="bm-genre">R&amp;B</span><span style="color: #3A3A44" aria-hidden="true">/</span><span class="bm-genre">Lo-fi</span><span style="color: #3A3A44" aria-hidden="true">/</span><span class="bm-genre">Jersey club</span><span style="color: #3A3A44" aria-hidden="true">/</span>
+</div>
+<div style="display: flex; gap: 40px; padding-right: 40px; align-items: center" aria-hidden="true">
+<span class="bm-genre">Trap</span><span style="color: #3A3A44">/</span><span class="bm-genre">Drill</span><span style="color: #3A3A44">/</span><span class="bm-genre">Boom bap</span><span style="color: #3A3A44">/</span><span class="bm-genre">R&amp;B</span><span style="color: #3A3A44">/</span><span class="bm-genre">Lo-fi</span><span style="color: #3A3A44">/</span><span class="bm-genre">Jersey club</span><span style="color: #3A3A44">/</span>
+<span class="bm-genre">Trap</span><span style="color: #3A3A44">/</span><span class="bm-genre">Drill</span><span style="color: #3A3A44">/</span><span class="bm-genre">Boom bap</span><span style="color: #3A3A44">/</span><span class="bm-genre">R&amp;B</span><span style="color: #3A3A44">/</span><span class="bm-genre">Lo-fi</span><span style="color: #3A3A44">/</span><span class="bm-genre">Jersey club</span><span style="color: #3A3A44">/</span>
+</div>
+</div>
+</section>
+
+<section id="features" style="max-width: 1200px; margin: 0 auto; padding: 112px 32px; display: flex; flex-direction: column; gap: 48px">
+<div class="bm-reveal" style="display: flex; flex-direction: column; gap: 14px; max-width: 680px">
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: clamp(34px, 4vw, 48px); line-height: 1.1; letter-spacing: -0.01em">The whole session, in plain words.</h2>
+<p style="margin: 0; color: #B4B4BE; font-size: 19px">BoothMate gives Claude real hands inside FL Studio. You talk, it does the clicking.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px">
+<div class="bm-card bm-reveal-pop" style="background: #17171C; border: 1px solid #2A2A33; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 10px">
+<div class="bm-num" style="font-family: 'Space Grotesk', sans-serif; color: {{accent}}; font-weight: 600">01</div>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 22px">A full beat in one ask</h3>
+<p style="margin: 0; color: #B4B4BE">Genre, key and vibe in, finished pattern out: tempo, drums, chords and an 808 that hits with the kick.</p>
+</div>
+<div class="bm-card bm-reveal-pop" style="background: #17171C; border: 1px solid #2A2A33; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 10px">
+<div class="bm-num" style="font-family: 'Space Grotesk', sans-serif; color: {{accent}}; font-weight: 600">02</div>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 22px">Change it by feel</h3>
+<p style="margin: 0; color: #B4B4BE">"Darker." "Sadder chords." "Switch it to drill." Swap one part at a time without touching the rest.</p>
+</div>
+<div class="bm-card bm-reveal-pop" style="background: #17171C; border: 1px solid #2A2A33; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 10px">
+<div class="bm-num" style="font-family: 'Space Grotesk', sans-serif; color: {{accent}}; font-weight: 600">03</div>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 22px">Melodies that fit</h3>
+<p style="margin: 0; color: #B4B4BE">Claude knows the scale and chords of your key, so every melody note lands where it should.</p>
+</div>
+<div class="bm-card bm-reveal-pop" style="background: #17171C; border: 1px solid #2A2A33; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 10px">
+<div class="bm-num" style="font-family: 'Space Grotesk', sans-serif; color: {{accent}}; font-weight: 600">04</div>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 22px">Vocal chains for rappers</h3>
+<p style="margin: 0; color: #B4B4BE">One ask sets up EQ, compression and space on your vocal, tuned for rap or melodic singing.</p>
+</div>
+<div class="bm-card bm-reveal-pop" style="background: #17171C; border: 1px solid #2A2A33; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 10px">
+<div class="bm-num" style="font-family: 'Space Grotesk', sans-serif; color: {{accent}}; font-weight: 600">05</div>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 22px">Mix help that explains itself</h3>
+<p style="margin: 0; color: #B4B4BE">Ask why it sounds muddy. Get the answer in plain English and a fix you approve first.</p>
+</div>
+<div class="bm-card bm-reveal-pop" style="background: #17171C; border: 1px solid #2A2A33; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 10px">
+<div class="bm-num" style="font-family: 'Space Grotesk', sans-serif; color: {{accent}}; font-weight: 600">06</div>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 22px">Undo anything</h3>
+<p style="margin: 0; color: #B4B4BE">Every change is logged. Say "undo that" and it's gone, so there's nothing to be scared of.</p>
+</div>
+</div>
+</section>
+
+<section id="booth" style="background: #121216; border-top: 1px solid #22222A; border-bottom: 1px solid #22222A">
+<div style="max-width: 1200px; margin: 0 auto; padding: 112px 32px; display: flex; flex-wrap: wrap; gap: 56px; align-items: center">
+<div class="bm-reveal-l" style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: clamp(34px, 4vw, 48px); line-height: 1.1">Talk like you're in the studio.</h2>
+<p style="margin: 0; color: #B4B4BE; font-size: 19px">When you're mid-take you don't have time for a mouse. Say it the way you'd say it to an engineer, and BoothMate moves the playhead, arms the record button and rolls.</p>
+</div>
+<div class="bm-reveal-r" style="flex: 1 1 460px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div class="bm-row" style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; background: #17171C; border: 1px solid #2A2A33; border-radius: 12px; padding: 16px 20px"><span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px">"Run it back."</span><span class="bm-rowtxt" style="color: #8E8E99; font-size: 15px">Restarts from the top</span></div>
+<div class="bm-row" style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; background: #17171C; border: 1px solid #2A2A33; border-radius: 12px; padding: 16px 20px"><span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px">"Take it from bar 9."</span><span class="bm-rowtxt" style="color: #8E8E99; font-size: 15px">Jumps and plays</span></div>
+<div class="bm-row" style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; background: #17171C; border: 1px solid #2A2A33; border-radius: 12px; padding: 16px 20px"><span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px">"Back it up four."</span><span class="bm-rowtxt" style="color: #8E8E99; font-size: 15px">Rewinds 4 bars</span></div>
+<div class="bm-row" style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; background: #17171C; border: 1px solid #2A2A33; border-radius: 12px; padding: 16px 20px"><span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px">"Punch me in at 17."</span><span class="bm-rowtxt" style="color: #8E8E99; font-size: 15px">Arms record and rolls</span></div>
+<div class="bm-row" style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; background: #17171C; border: 1px solid #2A2A33; border-radius: 12px; padding: 16px 20px"><span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px">"Cut."</span><span class="bm-rowtxt" style="color: #8E8E99; font-size: 15px">Stops playback</span></div>
+</div>
+</div>
+</section>
+
+<section id="prompts" style="position: relative; overflow: hidden; padding: 112px 32px">
+<div class="bm-blob bm-blob1" style="width: 480px; height: 480px; left: -8%; top: 8%; background: #5CC8FF; opacity: .22" aria-hidden="true"></div>
+<div class="bm-blob bm-blob2" style="width: 420px; height: 420px; right: -6%; bottom: 4%; background: {{accent}}; opacity: .22" aria-hidden="true"></div>
+<div style="position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 36px">
+<div class="bm-reveal" style="display: flex; flex-direction: column; gap: 14px; max-width: 760px">
+<div style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: {{accent}}">Prompt library</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: clamp(34px, 4vw, 48px); line-height: 1.1">Workflows from FL Studio's own tutorials. Just ask.</h2>
+<p style="margin: 0; color: #B4B4BE; font-size: 19px">We studied the official FL Studio YouTube channel, from step-sequencer guides to producer breakdowns by Metro Boomin, TM88, Purps and Lex Luger, and turned the techniques into things you can say to Claude. Copy one, paste it into Claude, and BoothMate takes it from there.</p>
+</div>
+
+<div class="bm-reveal" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between">
+<div role="tablist" aria-label="Prompt categories" class="bm-glass bm-glass-still" style="display: flex; flex-wrap: wrap; gap: 6px; border-radius: 16px; padding: 6px">
+<sc-for list="{{promptTabs}}" as="tab" hint-placeholder-count="5">
+<button type="button" role="tab" aria-selected="{{tab.sel}}" class="bm-tbtn" onClick="{{tab.pick}}" style="{{tab.style}}">{{tab.label}}</button>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: #B4B4BE">
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 50%; background: {{accent}}"></span>BoothMate does it in FL Studio</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 50%; background: #5CC8FF"></span>Claude walks you through it</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 50%; background: #ECECEF"></span>A bit of both</span>
+</div>
+</div>
+
+<div class="bm-pgrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px">
+<sc-for list="{{prompts}}" as="p" hint-placeholder-count="5">
+<article class="bm-glass bm-glass-still bm-pcard" style="border-radius: 22px; padding: 22px; border: 1px solid rgba(255,255,255,.14); display: flex; flex-direction: column; gap: 14px">
+<div class="bm-z" style="display: flex; justify-content: space-between; gap: 10px; align-items: center">
+<span style="{{p.badgeStyle}}">{{p.badge}}</span>
+<span style="font-size: 12px; color: #8E8E99">{{p.who}}</span>
+</div>
+<p class="bm-z bm-quote" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 19px; line-height: 1.35; color: #ECECEF">"{{p.text}}"</p>
+<p class="bm-z" style="margin: 0; color: #B4B4BE; font-size: 15px">{{p.what}}</p>
+<div class="bm-z" style="margin-top: auto; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between">
+<a href="{{p.src}}" target="_blank" rel="noopener" style="font-size: 13px; color: #B4B4BE; text-decoration: none; border-bottom: 1px solid #3A3A44; max-width: 62%">From: {{p.srcTitle}} &#8599;</a>
+<button type="button" class="bm-tbtn bm-glass-pill" onClick="{{p.copy}}" aria-label="Copy this prompt" style="{{p.copyStyle}}"><span class="{{p.copyClass}}">{{p.copyLabel}}</span></button>
+</div>
+</article>
+</sc-for>
+</div>
+
+<p class="bm-reveal" style="margin: 0; font-size: 13px; color: #8E8E99; max-width: 860px">Prompts are written by BoothMate from techniques shown in FL Studio's public YouTube tutorials; we link every source so you can watch the original. BoothMate is not affiliated with or endorsed by Image-Line or the producers named. Some techniques use plugins from higher FL Studio editions; Claude suggests a stock alternative when your edition doesn't have one. Only split or sample audio you own or have permission to use.</p>
+</div>
+</section>
+
+<section id="setup" style="position: relative; max-width: 1200px; margin: 0 auto; padding: 112px 32px; display: flex; flex-direction: column; gap: 40px">
+<div class="bm-blob bm-blob2" style="width: 460px; height: 460px; left: -6%; top: 18%; background: {{accent}}; opacity: .28" aria-hidden="true"></div>
+<div class="bm-blob bm-blob1" style="width: 420px; height: 420px; right: -4%; top: 40%; background: #5CC8FF; opacity: .3" aria-hidden="true"></div>
+<div class="bm-blob bm-blob3" style="width: 360px; height: 360px; left: 35%; bottom: 0; background: #FF7A1A; opacity: .25" aria-hidden="true"></div>
+<div class="bm-reveal bm-z" style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 14px; max-width: 640px">
+<div style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: {{accent}}">Setup walkthrough</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: clamp(34px, 4vw, 48px); line-height: 1.1">Set up once. Make beats forever.</h2>
+<p style="margin: 0; color: #B4B4BE; font-size: 19px">About ten minutes, one time. Pick your computer and follow along. Claude does the technical part for you.</p>
+</div>
+<div role="tablist" aria-label="Your computer" class="bm-glass bm-glass-still" style="display: flex; gap: 6px; border-radius: 16px; padding: 6px">
+<button type="button" role="tab" aria-selected="{{winSel}}" class="bm-tbtn" onClick="{{pickWin}}" style="{{winTab}}">Windows</button>
+<button type="button" role="tab" aria-selected="{{macSel}}" class="bm-tbtn" onClick="{{pickMac}}" style="{{macTab}}">Mac</button>
+</div>
+</div>
+
+<div class="bm-reveal bm-z" style="display: flex; flex-wrap: wrap; gap: 28px; align-items: stretch">
+<ol class="bm-glass bm-glass-still" style="flex: 1 1 300px; min-width: 0; list-style: none; margin: 0; padding: 14px; border-radius: 24px; display: flex; flex-direction: column; gap: 8px; align-self: flex-start">
+<sc-for list="{{steps}}" as="item" hint-placeholder-count="7">
+<li><button type="button" class="bm-pill bm-tbtn bm-glass-pill" onClick="{{item.pick}}" aria-current="{{item.current}}" style="{{item.pillStyle}}"><span style="{{item.numStyle}}">{{item.n}}</span><span>{{item.title}}</span></button></li>
+</sc-for>
+</ol>
+
+<div style="flex: 2 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+<div class="bm-glass bm-glass-still bm-float" style="border-radius: 24px; display: flex; flex-direction: column">
+<div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05)">
+<span style="width: 11px; height: 11px; border-radius: 50%; background: #3A3A44"></span><span style="width: 11px; height: 11px; border-radius: 50%; background: #3A3A44"></span><span style="width: 11px; height: 11px; border-radius: 50%; background: #3A3A44"></span>
+<span style="margin-left: 8px; font-size: 13px; color: #8E8E99">{{windowTitle}}</span>
+</div>
+<div style="position: relative; z-index: 1; height: 3px; background: rgba(255,255,255,.08)"><sc-if value="{{playing}}" hint-placeholder-val="{{ false }}"><div class="bm-prog" style="height: 3px; background: {{accent}}"></div></sc-if></div>
+<div style="position: relative; z-index: 1; min-height: 300px; padding: 28px; display: flex; flex-direction: column; justify-content: center">
+
+<sc-if value="{{isAdd}}" hint-placeholder-val="{{ false }}"><div class="bm-screen" style="display: flex; flex-direction: column; gap: 14px">
+<div style="font-size: 13px; color: #8E8E99">BoothMate-0.1.4.mcpb › Claude › Install extension</div>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; background: #1E1E25; border: 1px solid #2A2A33; border-radius: 14px; padding: 18px">
+<div style="display: flex; gap: 14px; align-items: center"><div style="width: 44px; height: 44px; border-radius: 10px; border: 2px solid {{accent}}; display: flex; align-items: flex-end; justify-content: center; gap: 4px; padding-bottom: 9px; box-sizing: border-box" aria-hidden="true"><span style="width: 4px; height: 10px; background: {{accent}}"></span><span style="width: 4px; height: 18px; background: {{accent}}"></span><span style="width: 4px; height: 14px; background: {{accent}}"></span></div><div><div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px">BoothMate</div><div style="font-size: 14px; color: #8E8E99">BlackAcre AI LLC · version 0.1.1</div></div></div>
+<div class="bm-target" style="background: {{accent}}; color: #0E0E11; font-weight: 600; padding: 10px 20px; border-radius: 10px">Install<svg class="bm-ptr" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2l16 9-7 2-3 7z" fill="#ECECEF" stroke="#0E0E11" stroke-width="1.5"></path></svg></div>
+</div>
+</div></sc-if>
+
+<sc-if value="{{isTerm}}" hint-placeholder-val="{{ false }}"><div class="bm-screen" style="background: #0B0B0D; border: 1px solid #2A2A33; border-radius: 12px; padding: 20px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.7; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; gap: 8px"><span style="color: {{accent}}">{{prompt}}</span><span class="bm-type" style="word-break: break-all">{{cmd}}</span></div>
+<div class="bm-out" style="color: #8E8E99">Downloading uv... installing to your user folder</div>
+<div class="bm-out2" style="color: {{accent}}">✓ uv installed. Now quit Claude fully and open it again.</div>
+</div></sc-if>
+
+<sc-if value="{{isLoop}}" hint-placeholder-val="{{ false }}"><div class="bm-screen" style="background: #EDEDF0; color: #1A1A1F; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+<div style="font-weight: 600">loopMIDI</div>
+<div style="background: #FFFFFF; border: 1px solid #C9C9D0; border-radius: 6px; overflow: hidden">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 8px 12px; background: #DCDCE2; font-weight: 600"><span>Loopback port</span><span>Status</span></div>
+<div class="bm-row1" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 8px 12px; border-top: 1px solid #E2E2E7"><span>FLStudioMCP RX</span><span>ready</span></div>
+<div class="bm-row2" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 8px 12px; border-top: 1px solid #E2E2E7"><span>FLStudioMCP TX</span><span>ready</span></div>
+</div>
+<div style="display: flex; gap: 8px; align-items: center"><span class="bm-target" style="width: 34px; height: 34px; border-radius: 6px; background: #FFFFFF; border: 1px solid #C9C9D0; display: inline-flex; align-items: center; justify-content: center; font-weight: 700">+<svg class="bm-ptr" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2l16 9-7 2-3 7z" fill="#1A1A1F" stroke="#FFFFFF" stroke-width="1.5"></path></svg></span><span style="background: #FFFFFF; border: 1px solid #C9C9D0; border-radius: 6px; padding: 6px 10px; flex: 1">New port-name: FLStudioMCP TX</span></div>
+</div></sc-if>
+
+<sc-if value="{{isChat}}" hint-placeholder-val="{{ false }}"><div class="bm-screen" style="display: flex; flex-direction: column; gap: 14px">
+<div style="align-self: flex-end; background: #2A2A33; padding: 12px 16px; border-radius: 14px 14px 4px 14px">{{chatUser}}</div>
+<div class="bm-out" style="background: #1E1E25; border: 1px solid #2A2A33; padding: 12px 16px; border-radius: 14px 14px 14px 4px; max-width: 90%">{{chatReply}}</div>
+<sc-if value="{{isGo}}" hint-placeholder-val="{{ false }}"><div class="bm-eq bm-out2" style="display: flex; gap: 6px; align-items: flex-end; height: 44px" aria-hidden="true"><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div></div></sc-if>
+</div></sc-if>
+
+<sc-if value="{{isMidi}}" hint-placeholder-val="{{ false }}"><div class="bm-screen" style="background: #2B2F33; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; font-size: 13px; color: #D8DDE2">
+<div style="font-weight: 600; color: #F2A541">MIDI › Input</div>
+<div style="background: #1F2226; border-radius: 6px; overflow: hidden">
+<div style="padding: 7px 12px; background: #3C5A3A; color: #EAF7E6">{{midiIn}} — BoothMate Studio — Port 0</div>
+<div style="padding: 7px 12px; color: #8E979F">{{midiOther}}</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: center">
+<span style="display: inline-flex; align-items: center; gap: 8px">Enable <span class="bm-tog bm-target" style="width: 42px; height: 22px; border-radius: 11px; display: inline-flex; padding: 2px; box-sizing: border-box"><span style="width: 18px; height: 18px; border-radius: 50%; background: #FFFFFF"></span></span></span>
+<span>Controller type <b style="background: #1F2226; padding: 4px 8px; border-radius: 4px; color: #F2A541">BoothMate Studio</b></span>
+<span>Port <b style="background: #1F2226; padding: 4px 8px; border-radius: 4px">0</b></span>
+</div>
+<div style="font-weight: 600; color: #F2A541; padding-top: 4px">MIDI › Output</div>
+<div style="background: #1F2226; border-radius: 6px; padding: 7px 12px">{{midiOut}} — Port <b>0</b> <span style="color: #8E979F">(same number)</span></div>
+</div></sc-if>
+
+<sc-if value="{{isAcc}}" hint-placeholder-val="{{ false }}"><div class="bm-screen" style="background: #EDEDF0; color: #1A1A1F; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+<div style="font-size: 13px; color: #5A5A66">System Settings › Privacy &amp; Security › Accessibility</div>
+<div style="background: #FFFFFF; border-radius: 8px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between"><span style="font-weight: 600">Claude</span><span class="bm-tog bm-target" style="width: 42px; height: 22px; border-radius: 11px; display: inline-flex; padding: 2px; box-sizing: border-box"><span style="width: 18px; height: 18px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.3)"></span></span></div>
+<div style="background: #FFFFFF; border-radius: 8px; padding: 12px 14px; color: #8E8E99">Terminal</div>
+</div></sc-if>
+
+<sc-if value="{{isPiano}}" hint-placeholder-val="{{ false }}"><div class="bm-screen" style="background: #2B2F33; border-radius: 12px; padding: 16px; display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: #D8DDE2">
+<div style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 4px">
+<div style="font-weight: 600; color: #F2A541">Piano roll › Tools ▾</div>
+<div style="background: #1F2226; border-radius: 6px; padding: 6px 0; display: flex; flex-direction: column">
+<span style="padding: 5px 12px; color: #8E979F">Quick quantize</span><span style="padding: 5px 12px; color: #8E979F">Chop</span><span style="padding: 5px 12px; background: #3A3F45">Scripting ›</span>
+</div>
+</div>
+<div style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 4px; padding-top: 22px">
+<div style="background: #1F2226; border-radius: 6px; padding: 6px 0; display: flex; flex-direction: column">
+<span style="padding: 5px 12px; color: #8E979F">Arpeggiator</span><span class="bm-target" style="padding: 5px 12px; background: #3C5A3A; color: #EAF7E6">MCP Apply<svg class="bm-ptr" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2l16 9-7 2-3 7z" fill="#ECECEF" stroke="#0E0E11" stroke-width="1.5"></path></svg></span><span style="padding: 5px 12px; color: #8E979F">Randomizer</span>
+</div>
+</div>
+</div></sc-if>
+
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 14px; color: {{accent}}; font-weight: 600">Step {{stepNum}} of {{stepCount}}</div>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 24px">{{stepTitle}}</h3>
+<p style="margin: 0; color: #B4B4BE">{{stepBody}}</p>
+<sc-if value="{{showDownload}}" hint-placeholder-val="{{ false }}"><div class="bm-pop" style="display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding-top: 10px">
+<a href="https://github.com/BlackFOXsolve/boothmate-plugin/raw/main/downloads/BoothMate-0.1.4.mcpb" class="bm-btn bm-btn-p bm-dl" style="background-color: {{accent}}; color: #0E0E11; text-decoration: none; font-weight: 600; padding: 14px 24px; border-radius: 12px; min-height: 48px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2v10M4.5 7.5L9 12l4.5-4.5M3 15.5h12" fill="none" stroke="#0E0E11" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Download BoothMate-0.1.4.mcpb</a>
+<span style="font-size: 14px; color: #8E8E99">Free · 426 KB · Windows and Mac. Using Claude Code? <a href="https://github.com/BlackFOXsolve/boothmate-plugin#install">Install commands</a></span>
+</div></sc-if>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<button type="button" class="bm-tbtn" onClick="{{back}}" disabled="{{atStart}}" style="background: transparent; color: #ECECEF; border: 1px solid #3A3A44; border-radius: 10px; padding: 0 18px; min-height: 44px">← Back</button>
+<button type="button" class="bm-tbtn" onClick="{{next}}" disabled="{{atEnd}}" style="background: {{accent}}; color: #0E0E11; border: 1px solid {{accent}}; border-radius: 10px; padding: 0 22px; min-height: 44px; font-weight: 600">Next step →</button>
+<button type="button" class="bm-tbtn" onClick="{{togglePlay}}" aria-pressed="{{playing}}" style="background: transparent; color: #B4B4BE; border: 1px solid #3A3A44; border-radius: 10px; padding: 0 18px; min-height: 44px">{{playLabel}}</button>
+</div>
+</div>
+</div>
+<p class="bm-reveal bm-z" style="margin: 0; font-size: 15px; color: #8E8E99">Stuck? Ask Claude "why isn't BoothMate connecting?" It checks every step and tells you the one thing to fix.</p>
+</section>
+
+<section id="faq" style="background: #121216; border-top: 1px solid #22222A">
+<div style="max-width: 860px; margin: 0 auto; padding: 112px 32px; display: flex; flex-direction: column; gap: 32px">
+<h2 class="bm-reveal" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: clamp(34px, 4vw, 48px); line-height: 1.1">Questions</h2>
+<div class="bm-faq bm-reveal" style="display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid #2A2A33; padding-bottom: 24px">
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 20px">Is it really free?</h3>
+<p style="margin: 0; color: #B4B4BE">Yes. BoothMate is free and open source. You need FL Studio and Claude's desktop app (or Claude Code). Only Beat Breakdown, the YouTube-link analyser, is paid ($22.99 per breakdown during the Black Friday sale).</p>
+</div>
+<div class="bm-faq bm-reveal" style="display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid #2A2A33; padding-bottom: 24px">
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 20px">Do I need to know music theory?</h3>
+<p style="margin: 0; color: #B4B4BE">No. Say a vibe like dark, sad, hype or chill. BoothMate picks chords that fit and keeps everything in key.</p>
+</div>
+<div class="bm-faq bm-reveal" style="display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid #2A2A33; padding-bottom: 24px">
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 20px">Which FL Studio do I need?</h3>
+<p style="margin: 0; color: #B4B4BE">FL Studio 20.7 or newer on Windows or Mac. 2025 or newer is recommended.</p>
+</div>
+<div class="bm-faq bm-reveal" style="display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid #2A2A33; padding-bottom: 24px">
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 20px">What can't it do?</h3>
+<p style="margin: 0; color: #B4B4BE">FL Studio doesn't let outside tools load new plugins or samples, import audio or export your song. BoothMate works with the sounds already in your project and tells you exactly what to add.</p>
+</div>
+<div class="bm-faq bm-reveal" style="display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid transparent; padding-bottom: 8px">
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 20px">Does my music leave my computer?</h3>
+<p style="margin: 0; color: #B4B4BE">BoothMate runs on your own computer and talks to FL Studio directly. Your requests go to Claude like any other chat.</p>
+</div>
+</div>
+</section>
+
+<section id="beat-breakdown" style="max-width: 1200px; margin: 0 auto; padding: 112px 32px 0">
+<span id="coming-soon" aria-hidden="true"></span>
+<div class="bm-soon bm-reveal" style="background: #17171C; border: 1px solid #2A2A33; border-radius: 24px; padding: 48px; display: flex; flex-wrap: wrap; gap: 48px; align-items: center">
+<div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #0E0E11; background: {{accent}}; padding: 6px 12px; border-radius: 999px; font-weight: 600"><span class="bm-live" style="width: 6px; height: 6px; border-radius: 50%; background: #0E0E11"></span>New · Live now</div>
+<div class="bm-live" style="display: flex; align-items: center; gap: 8px; background: #FF4F5E; color: #FFFFFF; font-weight: 700; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 12px; border-radius: 999px">Black Friday · 54% off</div>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: clamp(32px, 4vw, 46px); line-height: 1.1">Beat Breakdown: paste a link, get the blueprint.</h2>
+<p style="margin: 0; color: #B4B4BE; font-size: 19px">Drop in a YouTube link to any beat or type beat. Our analyser watches and listens to the whole thing and hands you the blueprint: tempo, key, drum feel, how the 808 moves, the melody approach, which FL Studio sounds to use, the arrangement, and step-by-step BoothMate prompts to build your own beat in that style.</p>
+
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 14px; padding-top: 4px">
+<span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 56px; line-height: 1; color: {{accent}}">$22.99</span>
+<span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 28px; line-height: 1; color: #8E8E99; text-decoration: line-through; text-decoration-color: #FF4F5E; text-decoration-thickness: 3px"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%)">Price after the holidays </span>$49.99</span>
+<span style="color: #B4B4BE">per breakdown</span>
+</div>
+<div style="font-size: 15px; color: #ECECEF">54% off until the holiday season ends, then $49.99. <span style="color: {{accent}}; font-weight: 600">Our gift to you.</span></div>
+
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; color: #ECECEF">
+<li style="display: flex; gap: 10px; align-items: flex-start"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" style="flex: none; margin-top: 4px"><path d="M3 9.5l4 4 8-9" fill="none" stroke="{{accent}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Tempo, key and groove, with how sure we are</span></li>
+<li style="display: flex; gap: 10px; align-items: flex-start"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" style="flex: none; margin-top: 4px"><path d="M3 9.5l4 4 8-9" fill="none" stroke="{{accent}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>The sounds to use, all stock FL Studio</span></li>
+<li style="display: flex; gap: 10px; align-items: flex-start"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" style="flex: none; margin-top: 4px"><path d="M3 9.5l4 4 8-9" fill="none" stroke="{{accent}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Step-by-step BoothMate prompts to build your own version</span></li>
+<li style="display: flex; gap: 10px; align-items: flex-start"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" style="flex: none; margin-top: 4px"><path d="M3 9.5l4 4 8-9" fill="none" stroke="{{accent}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Ready in about a minute, and the link is yours to keep</span></li>
+</ul>
+
+<form class="bm-glass bm-glass-still" onSubmit="{{bbGo}}" style="border-radius: 16px; padding: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<label for="bm-yt" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%)">YouTube link</label>
+<input id="bm-yt" class="bm-z" type="url" inputmode="url" autocomplete="off" placeholder="Paste a YouTube link to a beat" value="{{bbUrl}}" onInput="{{bbInput}}" style="flex: 1 1 240px; min-width: 0; min-height: 52px; box-sizing: border-box; padding: 0 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,.18); background: rgba(14,14,17,.6); color: #ECECEF; font: inherit; font-size: 16px; outline-color: {{accent}}">
+<button type="submit" class="bm-z bm-btn bm-btn-p" aria-busy="{{bbBusyAttr}}" style="background-color: {{accent}}; color: #0E0E11; border: 0; font: inherit; font-weight: 600; font-size: 17px; padding: 0 24px; min-height: 52px; border-radius: 12px; cursor: pointer">{{bbBtnLabel}}</button>
+</form>
+<sc-if value="{{bbHasError}}" hint-placeholder-val="{{ false }}"><p role="alert" style="margin: -6px 0 0; color: #FF8A94; font-size: 15px">{{bbError}}</p></sc-if>
+<p style="margin: 0; font-size: 14px"><a href="/breakdown.html?sample=1" style="color: {{accent}}">See a sample breakdown</a><span style="color: #8E8E99"> · checkout by Stripe</span></p>
+
+<div style="background: #0E0E11; border: 1px solid #2A2A33; border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 18px">Why this costs more than the rest of BoothMate</h3>
+<p style="margin: 0; color: #B4B4BE; font-size: 15px">Every breakdown runs a full AI analysis of the video, which costs real money per link. It's also built to keep you clear of copyright trouble: it describes the style and approach (tempo, feel, sounds, structure) and never hands you the original melody, samples or drum pattern, so the beat you build is yours. Don't release a near-copy of someone else's beat.</p>
+</div>
+<p style="margin: 0; font-size: 13px; color: #8E8E99; max-width: 560px">One breakdown per purchase. Results are estimates from what the analyser hears. If we can't break your video down after three tries, email contact@blackfoxsolve.com with your receipt for a full refund. Not affiliated with YouTube or the producers whose beats you analyse. The rest of BoothMate stays free.</p>
+</div>
+<div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 16px" aria-hidden="true">
+<div style="display: flex; gap: 10px; align-items: center; background: #0E0E11; border: 1px solid #3A3A44; border-radius: 12px; padding: 12px 14px">
+<svg width="22" height="16" viewBox="0 0 22 16"><rect x="0.5" y="0.5" width="21" height="15" rx="4" fill="none" stroke="#8E8E99"></rect><path d="M9 5l5 3-5 3z" fill="#8E8E99"></path></svg>
+<span class="bm-link" style="flex: 1; min-width: 0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; color: #ECECEF; white-space: nowrap; overflow: hidden">youtube.com/watch?v=melodic-trap-type-beat</span>
+<span style="background: {{accent}}; color: #0E0E11; font-weight: 600; font-size: 14px; padding: 8px 14px; border-radius: 8px">Break it down</span>
+</div>
+<div style="height: 4px; background: #22222A; border-radius: 2px; overflow: hidden"><div class="bm-scan" style="height: 4px; background: {{accent}}"></div></div>
+<div class="bm-chips" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<div style="background: #0E0E11; border: 1px solid #3A3A44; border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #8E8E99; text-transform: uppercase; letter-spacing: 0.06em">Style</span><span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 17px">Melodic street trap</span></div>
+<div style="background: #0E0E11; border: 1px solid #3A3A44; border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #8E8E99; text-transform: uppercase; letter-spacing: 0.06em">Tempo</span><span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 17px">180 BPM (90 half-time)</span></div>
+<div style="background: #0E0E11; border: 1px solid #3A3A44; border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #8E8E99; text-transform: uppercase; letter-spacing: 0.06em">Key</span><span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 17px">D minor</span></div>
+<div style="background: #0E0E11; border: 1px solid #3A3A44; border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #8E8E99; text-transform: uppercase; letter-spacing: 0.06em">808</span><span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 17px">Long notes, octave slides</span></div>
+<div style="background: #0E0E11; border: 1px solid #3A3A44; border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #8E8E99; text-transform: uppercase; letter-spacing: 0.06em">Sounds</span><span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 17px">FLEX pad, bell pluck</span></div>
+</div>
+<div style="background: #0E0E11; border: 1px solid #3A3A44; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #8E8E99; text-transform: uppercase; letter-spacing: 0.06em">BoothMate prompt 3 of 7</span>
+<span style="font-family: 'Space Grotesk', sans-serif; font-size: 16px">"Write a simple, catchy bell melody in D minor that sits above the chords."</span>
+</div>
+<div style="align-self: flex-end; font-size: 12px; color: #8E8E99">From a real sample breakdown</div>
+</div>
+</div>
+</section>
+
+<section style="max-width: 1200px; margin: 0 auto; padding: 112px 32px; display: flex; flex-direction: column; align-items: center; gap: 28px; text-align: center">
+<div class="bm-eq bm-reveal-pop" style="display: flex; gap: 6px; align-items: flex-end; height: 48px; width: 160px" aria-hidden="true">
+<div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div><div style="flex: 1; height: 100%; background: {{accent}}; border-radius: 2px"></div>
+</div>
+<h2 class="bm-reveal" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: clamp(40px, 5vw, 64px); line-height: 1.05; letter-spacing: -0.02em; max-width: 820px">Skip the studio bill. Keep the engineer.</h2>
+<div class="bm-reveal-pop"><a href="#setup" class="bm-btn bm-btn-p" style="background-color: {{accent}}; color: #0E0E11; text-decoration: none; font-weight: 600; padding: 16px 30px; border-radius: 12px; min-height: 52px; box-sizing: border-box; display: inline-flex; align-items: center; font-size: 18px">Get BoothMate free</a></div>
+</section>
+
+<footer class="bm-reveal" style="border-top: 1px solid #22222A">
+<div style="max-width: 1200px; margin: 0 auto; padding: 32px; display: flex; flex-wrap: wrap; gap: 12px 32px; justify-content: space-between; font-size: 14px; color: #8E8E99">
+<span>© 2026 Wilderfold LLC. BoothMate builds on <a href="https://github.com/rosasynthesiz/flstudio-mcp">flstudio-mcp</a> (MIT).</span>
+<span>FL Studio® and the FL Studio logo are registered trademarks of Image-Line Software. Claude is a trademark of Anthropic. BoothMate is not affiliated with or endorsed by either.</span>
+</div>
+</footer>
+
+</div>
+</x-dc>
+</template>
+<script>
+window.addEventListener("DOMContentLoaded", function () {
+
+class Component extends DCLogic {
+bmSteps() {
+return {
+  win: [
+    { title: 'Install BoothMate', body: 'Click the download button below, then double-click BoothMate-0.1.4.mcpb. The Claude desktop app opens and asks to install it. Click Install. It is free.', screen: 'add', win: 'Claude' },
+    { title: 'Install uv', body: 'Open PowerShell, paste this line and press Enter. uv installs the Python that BoothMate runs on. Then quit Claude fully and reopen it.', screen: 'term', win: 'Windows PowerShell', prompt: 'PS>', cmd: 'powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"' },
+    { title: 'Create two MIDI ports', body: 'Install the free loopMIDI app. Delete its default port and add two named exactly FLStudioMCP RX and FLStudioMCP TX. Leave loopMIDI running.', screen: 'loop', win: 'loopMIDI' },
+    { title: 'Ask Claude to set it up', body: 'Open FL Studio once, then tell Claude "set up BoothMate". It installs everything FL Studio needs. Restart FL Studio if it was open.', screen: 'chat', win: 'Claude', user: 'Set up BoothMate.', reply: 'Installed the BoothMate scripts into FL Studio. Close FL Studio fully and reopen it, then switch it on in MIDI Settings.' },
+    { title: 'Switch it on in FL Studio', body: 'Options › MIDI Settings. Select FLStudioMCP RX, turn on Enable, set Controller type to BoothMate Studio and Port to 0. Give FLStudioMCP TX the same port. Claude can do this for you if it can use your screen.', screen: 'midi', win: 'FL Studio · MIDI Settings' },
+    { title: 'Arm the piano roll', body: 'Once each time you open FL Studio: open the Piano roll, then Tools › Scripting › MCP Apply. This lets Claude write chords, 808s and melodies.', screen: 'piano', win: 'FL Studio · Piano roll' },
+    { title: 'Make a beat', body: 'That is it. Ask for a beat in plain words and press play.', screen: 'chat', go: true, win: 'Claude', user: 'Make me a dark trap beat in F# minor.', reply: 'Done: trap at 140 BPM in F# minor. Drums, chords and 808 are in. Hit play.' }
+  ],
+  mac: [
+    { title: 'Install BoothMate', body: 'Click the download button below, then double-click BoothMate-0.1.4.mcpb. The Claude desktop app opens and asks to install it. Click Install. It is free.', screen: 'add', win: 'Claude' },
+    { title: 'Install uv', body: 'Open Terminal, paste this line and press Return. uv installs the Python that BoothMate runs on. Then quit Claude fully and reopen it.', screen: 'term', win: 'Terminal', prompt: '$', cmd: 'curl -LsSf https://astral.sh/uv/install.sh | sh' },
+    { title: 'Ask Claude to set it up', body: 'Tell Claude "set up BoothMate". It installs the FL Studio scripts and opens FL Studio for you.', screen: 'chat', win: 'Claude', user: 'Set up BoothMate.', reply: 'Installed. FL Studio is open; one switch left in MIDI Settings and I can flip it for you.' },
+    { title: 'Switch it on in FL Studio', body: 'Once per computer: Options › MIDI Settings. Select BoothMate Studio under Input, turn on Enable, set Controller type to BoothMate Studio and Port to 0, then set the BoothMate Studio output Port to 0. Claude can do this for you if it can use your screen.', screen: 'midi', win: 'FL Studio · MIDI Settings' },
+    { title: 'Allow keystrokes', body: 'System Settings › Privacy & Security: turn on Claude under Accessibility, and under Automation › Claude turn on System Events. This lets chords, 808s and melodies land in the piano roll.', screen: 'acc', win: 'System Settings' },
+    { title: 'Arm the piano roll', body: 'Once each time you open FL Studio: open the Piano roll, then Tools › Scripting › MCP Apply.', screen: 'piano', win: 'FL Studio · Piano roll' },
+    { title: 'Make a beat', body: 'That is it. Ask for a beat in plain words and press play.', screen: 'chat', go: true, win: 'Claude', user: 'Make me a dark trap beat in F# minor.', reply: 'Done: trap at 140 BPM in F# minor. Drums, chords and 808 are in. Hit play.' }
+  ]
+};
+}
+bmPrompts() {
+return [
+{
+"cat": "start",
+"kind": "do",
+"src": "https://www.youtube.com/watch?v=dxbPXPq9aeA",
+"srcTitle": "Hip hop & Trap Tutorial",
+"who": "FL Studio tutorial",
+"text": "Set up a 140 BPM trap beat: kick, clap and snare in the step sequencer, hi-hats on every other step with varied velocity, and a sliding 808.",
+"what": "Tempo, drums and an 808 with glides, written straight into your project."
+},
+{
+"cat": "start",
+"kind": "do",
+"src": "https://www.youtube.com/watch?v=TLfH7s60Z_w",
+"srcTitle": "TM88 Track Breakdown",
+"who": "TM88",
+"text": "Make a dark horror-trap intro at 157 BPM: 8 bars of layered minor chords with no drums, then drop the 808 and hi-hats at bar 9.",
+"what": "Writes the chords on your chord channels and the drop on the drums, with markers for the intro and drop."
+},
+{
+"cat": "start",
+"kind": "do",
+"src": "https://www.youtube.com/watch?v=6WEh64feSjg",
+"srcTitle": "Lex Luger making a beat",
+"who": "Lex Luger",
+"text": "Start with a simple melody I could whistle, then build a hard, simple trap beat around it.",
+"what": "Melody first, the way Lex Luger works, then drums and 808 that fit it."
+},
+{
+"cat": "start",
+"kind": "do",
+"src": "https://www.youtube.com/watch?v=Ab-mP9aRLuc",
+"srcTitle": "Official Drill Demo Project",
+"who": "Official drill demo",
+"text": "Make a UK drill beat with layered snares, syncopated counter-snares and a sliding 808 that locks around the kick.",
+"what": "The UK drill bounce from FL Studio’s official demo project, in your key."
+},
+{
+"cat": "drums",
+"kind": "do",
+"src": "https://www.youtube.com/watch?v=Av4NhUWQ-24",
+"srcTitle": "Metro Boomin: Beats Tutorial",
+"who": "Metro Boomin",
+"text": "Space my kicks and 808 apart so they bounce off each other instead of hitting together.",
+"what": "Rewrites the kick and 808 so they trade places instead of stacking."
+},
+{
+"cat": "drums",
+"kind": "do",
+"src": "https://www.youtube.com/watch?v=Av4NhUWQ-24",
+"srcTitle": "Metro Boomin: Beats Tutorial",
+"who": "Metro Boomin",
+"text": "Layer a second snare over my clap, but only on a few hits, so the drums bounce.",
+"what": "Adds the layer on chosen hits only; Claude shows you how to pitch it down a semitone."
+},
+{
+"cat": "drums",
+"kind": "do",
+"src": "https://www.youtube.com/watch?v=NmgSwgayqhU",
+"srcTitle": "Purps Trap Beat Breakdown",
+"who": "Purps",
+"text": "Turn my steady hi-hats into intentional rolls with rising velocity, not random ones.",
+"what": "Rolls placed with purpose and velocity ramps, the way Metro and Purps describe."
+},
+{
+"cat": "drums",
+"kind": "both",
+"src": "https://www.youtube.com/watch?v=7HgV0uyHwt0",
+"srcTitle": "Metro Boomin: Kicks and Basslines",
+"who": "Metro Boomin",
+"text": "Tune my 808 to the key of my melody.",
+"what": "BoothMate writes the 808 in key; for your own 808 sample, Claude walks you through finding its pitch with Tuner."
+},
+{
+"cat": "drums",
+"kind": "do",
+"src": "https://www.youtube.com/watch?v=NmgSwgayqhU",
+"srcTitle": "Purps Trap Beat Breakdown",
+"who": "Purps",
+"text": "Bring in a second, harder 808 only the second time through the loop.",
+"what": "Holds the extra 808 back for the second half so the loop builds."
+},
+{
+"cat": "mix",
+"kind": "guide",
+"src": "https://www.youtube.com/watch?v=7HgV0uyHwt0",
+"srcTitle": "Metro Boomin: Kicks and Basslines",
+"who": "Metro Boomin",
+"text": "Make my synth bass cut off the 808 so the low end isn’t muddy.",
+"what": "Claude walks you through matching cut groups in Channel settings, the fix Metro shows."
+},
+{
+"cat": "mix",
+"kind": "both",
+"src": "https://www.youtube.com/watch?v=NmgSwgayqhU",
+"srcTitle": "Purps Trap Beat Breakdown",
+"who": "Purps",
+"text": "Put a soft clipper on my master so the 808 hits hard without clipping.",
+"what": "You add Fruity Soft Clipper (FL Studio can’t load plugins for outside tools); BoothMate can then set it."
+},
+{
+"cat": "mix",
+"kind": "both",
+"src": "https://www.youtube.com/watch?v=Av4NhUWQ-24",
+"srcTitle": "Metro Boomin: Beats Tutorial",
+"who": "Metro Boomin",
+"text": "Tighten my hi-hat tails and add a little reverb to them.",
+"what": "Claude shows you the OUT knob; BoothMate dials in the reverb once it’s on the hat’s mixer track."
+},
+{
+"cat": "mix",
+"kind": "do",
+"src": "https://www.youtube.com/watch?v=Ab-mP9aRLuc",
+"srcTitle": "Official Drill Demo Project",
+"who": "Official drill demo",
+"text": "Set up mixer buses for melody, drums and vocals, with reverb and delay sends.",
+"what": "Names, routes and groups your mixer tracks like the official demo project."
+},
+{
+"cat": "arrange",
+"kind": "do",
+"src": "https://www.youtube.com/watch?v=69Voz6NE-oo",
+"srcTitle": "Split any audio with Stem Separation",
+"who": "FL Studio tutorial",
+"text": "Add Intro, Verse, Hook and Bridge markers to my song.",
+"what": "Named markers on the timeline so you can say “take it from the hook”."
+},
+{
+"cat": "arrange",
+"kind": "do",
+"src": "https://www.youtube.com/watch?v=dxbPXPq9aeA",
+"srcTitle": "Hip hop & Trap Tutorial",
+"who": "FL Studio tutorial",
+"text": "Make a variation of this pattern without changing the original.",
+"what": "Clones the pattern first, the safe way the tutorial recommends."
+},
+{
+"cat": "arrange",
+"kind": "guide",
+"src": "https://www.youtube.com/watch?v=wBgJGuLZ-CY",
+"srcTitle": "The best way to export your music",
+"who": "FL Studio tutorial",
+"text": "Walk me through exporting my whole song as a WAV and keeping the reverb tails.",
+"what": "Song mode, Leave remainder, the right bit depth: the settings that stop half-exported songs."
+},
+{
+"cat": "arrange",
+"kind": "guide",
+"src": "https://www.youtube.com/watch?v=wBgJGuLZ-CY",
+"srcTitle": "The best way to export your music",
+"who": "FL Studio tutorial",
+"text": "Help me export stems of every mixer track for my engineer.",
+"what": "The Split mixer tracks option, step by step."
+},
+{
+"cat": "learn",
+"kind": "both",
+"src": "https://www.youtube.com/watch?v=Z9RZpnj2uqo",
+"srcTitle": "Let's record MIDI",
+"who": "FL Studio tutorial",
+"text": "Help me connect my MIDI keyboard, record a melody, then tighten the timing.",
+"what": "Claude guides the setup and recording; BoothMate quantizes the notes afterwards."
+},
+{
+"cat": "learn",
+"kind": "both",
+"src": "https://www.youtube.com/watch?v=et-sYCqVEms",
+"srcTitle": "How to follow a Linear Workflow",
+"who": "FL Studio tutorial",
+"text": "Keep my playlist, channels and mixer linked and color-coded as I work.",
+"what": "BoothMate colors and names tracks; Claude shows you instrument tracks so they stay linked."
+},
+{
+"cat": "learn",
+"kind": "do",
+"src": "https://www.youtube.com/watch?v=VU29E38z4s4",
+"srcTitle": "What Edition is right for me?",
+"who": "FL Studio tutorial",
+"text": "Which FL Studio plan am I on, and can it record vocals?",
+"what": "BoothMate knows every plan, from the trial and Fruity to All Plugins, and plans around yours."
+},
+{
+"cat": "learn",
+"kind": "guide",
+"src": "https://www.youtube.com/watch?v=69Voz6NE-oo",
+"srcTitle": "Split any audio with Stem Separation",
+"who": "FL Studio tutorial",
+"text": "Split a song I made into drums, bass, instruments and vocals.",
+"what": "Stem separation, step by step (Producer Edition and up)."
+},
+{
+"cat": "learn",
+"kind": "guide",
+"src": "https://www.youtube.com/watch?v=AnNWKLXBduQ",
+"srcTitle": "How to use the Audio Clip Properties",
+"who": "FL Studio tutorial",
+"text": "Pitch this audio clip up 2 semitones without making it unique.",
+"what": "Audio clip properties and the 7, 8 and 9 shortcuts."
+}
+];
+}
+st() {
+const s = this.state || {};
+return { os: s.os || 'win', step: s.step || 0, playing: !!s.playing, cat: s.cat || 'start', copied: (s.copied === undefined ? -1 : s.copied), bbUrl: s.bbUrl || '', bbBusy: !!s.bbBusy, bbError: s.bbError || '' };
+}
+componentDidMount() {
+this.timer = setInterval(() => {
+const st = this.st();
+if (!st.playing) return;
+const list = this.bmSteps()[st.os];
+this.setState({ step: (st.step + 1) % list.length });
+}, 5000);
+}
+componentWillUnmount() { clearInterval(this.timer); clearTimeout(this.copyT); }
+bmFallbackCopy(text) {
+const ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } finally { document.body.removeChild(ta); }
+}
+renderVals() {
+const accent = this.props.accent ?? '#C6F432';
+const m = /^#?([0-9a-f]{6})$/i.exec(accent);
+let glow = 'rgba(198,244,50,0.45)';
+if (m) {
+const n = parseInt(m[1], 16);
+glow = 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',0.45)';
+}
+const st = this.st();
+const os = st.os;
+const list = this.bmSteps()[os];
+const i = Math.min(st.step, list.length - 1);
+const cur = list[i];
+const tabOn = 'background: ' + accent + '; color: #0E0E11; border: 1px solid ' + accent + '; border-radius: 8px; padding: 0 20px; min-height: 44px; font-weight: 600';
+const tabOff = 'background: transparent; color: #B4B4BE; border: 1px solid transparent; border-radius: 8px; padding: 0 20px; min-height: 44px; font-weight: 500';
+const steps = list.map((s, k) => ({
+n: k + 1, title: s.title, current: k === i ? 'step' : 'false',
+pick: () => this.setState({ step: k, playing: false }),
+pillStyle: 'width: 100%; display: flex; gap: 14px; align-items: center; text-align: left; padding: 12px 14px; min-height: 52px; border-radius: 12px; color: ' + (k === i ? '#ECECEF' : '#B4B4BE') + '; background: ' + (k === i ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)') + '; border: 1px solid ' + (k === i ? accent : 'rgba(255,255,255,0.12)'),
+numStyle: 'flex: none; width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-family: Space Grotesk, sans-serif; font-weight: 700; font-size: 14px; ' + (k < i ? 'background: ' + glow + '; color: #ECECEF' : k === i ? 'background: ' + accent + '; color: #0E0E11' : 'background: #22222A; color: #8E8E99')
+}));
+
+const cats = [['start','Start a beat'],['drums','Drums & 808s'],['mix','Mix & sound'],['arrange','Arrange & finish'],['learn','Learn FL Studio']];
+const promptTabs = cats.map(([id, label]) => ({
+label: label, sel: st.cat === id ? 'true' : 'false',
+pick: () => this.setState({ cat: id, copied: -1 }),
+style: st.cat === id ? tabOn.replace('padding: 0 20px', 'padding: 0 16px') : tabOff.replace('padding: 0 20px', 'padding: 0 16px')
+}));
+const kindName = { do: 'BoothMate does it', guide: 'Claude walks you through it', both: 'Both' };
+const kindCol = { do: accent, guide: '#5CC8FF', both: '#ECECEF' };
+const all = this.bmPrompts();
+const prompts = all.map((q, k) => ({ q, k })).filter(o => o.q.cat === st.cat).map(({ q, k }) => ({
+text: q.text, what: q.what, src: q.src, srcTitle: q.srcTitle, who: q.who,
+badge: kindName[q.kind],
+badgeStyle: 'font-size: 12px; font-weight: 600; letter-spacing: .02em; padding: 5px 10px; border-radius: 999px; color: ' + kindCol[q.kind] + '; border: 1px solid ' + kindCol[q.kind] + '; background: rgba(14,14,17,.35)',
+copyLabel: st.copied === k ? 'Copied ✓' : 'Copy prompt',
+copyClass: st.copied === k ? 'bm-copied' : '',
+copyStyle: 'min-height: 40px; padding: 0 14px; border-radius: 10px; font-size: 14px; font-weight: 600; ' + (st.copied === k ? 'background: ' + accent + '; color: #0E0E11; border: 1px solid ' + accent : 'background: rgba(255,255,255,.06); color: #ECECEF; border: 1px solid rgba(255,255,255,.2)'),
+copy: () => {
+  const done = () => { this.setState({ copied: k }); clearTimeout(this.copyT); this.copyT = setTimeout(() => this.setState({ copied: -1 }), 1800); };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(q.text).then(done, () => { this.bmFallbackCopy(q.text); done(); }); }
+    else { this.bmFallbackCopy(q.text); done(); }
+  } catch (e) { try { this.bmFallbackCopy(q.text); } catch (e2) {} done(); }
+}
+}));
+
+const bbGo = async (e) => {
+  if (e && e.preventDefault) e.preventDefault();
+  const url = (this.st().bbUrl || '').trim();
+  if (!url) { this.setState({ bbError: 'Paste a YouTube link first.' }); return; }
+  if (this.st().bbBusy) return;
+  this.setState({ bbBusy: true, bbError: '' });
+  try {
+    const r = await fetch('/api/checkout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url }) });
+    let j = {};
+    try { j = await r.json(); } catch (e2) {}
+    if (r.ok && j.url) { window.location.href = j.url; return; }
+    this.setState({ bbBusy: false, bbError: j.error || 'Checkout opens on the live BoothMate site.' });
+  } catch (err) {
+    this.setState({ bbBusy: false, bbError: 'Checkout opens on the live BoothMate site.' });
+  }
+};
+return {
+accent: accent, accentGlow: glow,
+promptTabs: promptTabs, prompts: prompts,
+bbUrl: st.bbUrl, bbInput: (e) => this.setState({ bbUrl: e && e.target ? e.target.value : '', bbError: '' }), bbGo: bbGo, bbBusyAttr: st.bbBusy ? 'true' : 'false', bbBtnLabel: st.bbBusy ? 'Opening checkout…' : 'Break it down · $22.99', bbHasError: !!st.bbError, bbError: st.bbError,
+midiIn: os === 'mac' ? 'BoothMate Studio' : 'FLStudioMCP RX', midiOut: os === 'mac' ? 'BoothMate Studio' : 'FLStudioMCP TX', midiOther: os === 'mac' ? 'IAC Driver Bus 1' : 'loopMIDI Port',
+winSel: os === 'win' ? 'true' : 'false', macSel: os === 'mac' ? 'true' : 'false',
+winTab: os === 'win' ? tabOn : tabOff, macTab: os === 'mac' ? tabOn : tabOff,
+pickWin: () => this.setState({ os: 'win', step: 0 }),
+pickMac: () => this.setState({ os: 'mac', step: 0 }),
+steps: steps, stepNum: i + 1, stepCount: list.length,
+stepTitle: cur.title, stepBody: cur.body, windowTitle: cur.win,
+isAdd: cur.screen === 'add', isTerm: cur.screen === 'term', isLoop: cur.screen === 'loop',
+isChat: cur.screen === 'chat', isMidi: cur.screen === 'midi', isAcc: cur.screen === 'acc',
+isPiano: cur.screen === 'piano', isGo: !!cur.go, showDownload: cur.screen === 'add',
+prompt: cur.prompt || '', cmd: cur.cmd || '', chatUser: cur.user || '', chatReply: cur.reply || '',
+atStart: i === 0, atEnd: i === list.length - 1,
+back: () => this.setState({ step: Math.max(0, i - 1), playing: false }),
+next: () => this.setState({ step: Math.min(list.length - 1, i + 1), playing: false }),
+playing: st.playing, playLabel: st.playing ? 'Pause walkthrough' : 'Play walkthrough',
+togglePlay: () => this.setState({ playing: !st.playing })
+};
+}
+}
+
+  window.dcLite.mount(Component, document.getElementById("app"), document.getElementById("tpl"), {"accent":"#C6F432"});
+  if (location.hash) { var t = document.querySelector(location.hash); if (t) setTimeout(function () { t.scrollIntoView(); }, 60); }
+});
+</script>
+</body>
+</html>

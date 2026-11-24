@@ -1,0 +1,13 @@
+{
+  "name": "boothmate-site",
+  "private": true,
+  "type": "module",
+  "description": "BoothMate public site and Beat Breakdown (YouTube link -> Gemini style breakdown -> BoothMate prompts).",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0",
+    "morphdom": "^2.7.8"
+  }
+}
