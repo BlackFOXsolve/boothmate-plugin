@@ -582,11 +582,12 @@ BoothMate
 
 <div class="bm-reveal" style="display: flex; flex-direction: column; gap: 16px; max-width: 820px">
 <div style="display: flex; flex-wrap: wrap; gap: 8px">
-<div style="display: flex; align-items: center; gap: 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #0E0E11; background: {{accent}}; padding: 6px 12px; border-radius: 999px; font-weight: 600"><span class="bm-live" style="width: 6px; height: 6px; border-radius: 50%; background: #0E0E11"></span>New · Live now</div>
-<div class="bm-live" style="display: flex; align-items: center; gap: 8px; background: #FF4F5E; color: #FFFFFF; font-weight: 700; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 12px; border-radius: 999px">Black Friday · 54% off</div>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #0E0E11; background: {{accent}}; padding: 6px 12px; border-radius: 999px; font-weight: 600"><span class="bm-live" style="width: 6px; height: 6px; border-radius: 50%; background: #0E0E11"></span>Early access · opening soon</div>
+<div class="bm-live" style="display: flex; align-items: center; gap: 8px; background: #FF4F5E; color: #FFFFFF; font-weight: 700; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 12px; border-radius: 999px">Launch price · 54% off</div>
 </div>
 <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: clamp(34px, 4.4vw, 54px); line-height: 1.05">Beat Breakdown. Any beat on YouTube, <span class="bm-goldtxt">turned into your blueprint.</span></h2>
 <p style="margin: 0; color: #B4B4BE; font-size: 19px">Paste a link to a beat you love. Hear it right here and get a free preview of its style, tempo and key. Then unlock the full blueprint and let BoothMate build your own version in FL Studio, through Claude.</p>
+<p style="margin: 0; color: #F5C542; font-size: 16px; font-weight: 600">Opening soon. Free previews and checkout aren’t open yet; the sample breakdown below shows exactly what you’ll get.</p>
 </div>
 
 <div class="bm-reveal bm-glass bm-glass-still" style="border-radius: 26px; padding: 26px 28px; display: flex; flex-wrap: wrap; gap: 18px; align-items: center; justify-content: space-between">
@@ -661,7 +662,7 @@ BoothMate
 <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 28px; line-height: 1; color: #8E8E99; text-decoration: line-through; text-decoration-color: #FF4F5E; text-decoration-thickness: 3px"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%)">Price after the holidays </span>$49.99</span>
 <span style="color: #B4B4BE">per beat</span>
 </div>
-<div style="font-size: 15px; color: #ECECEF">54% off until the holiday season ends, then $49.99. <span style="color: #F5C542; font-weight: 600">Our gift to you.</span></div>
+<div style="font-size: 15px; color: #ECECEF">Launch price: 54% off, then $49.99. <span style="color: #F5C542; font-weight: 600">Our gift to you.</span></div>
 <p style="margin: 0; color: #B4B4BE; font-size: 15px">Behind the $22.99: every link runs through our Gemini-powered analyser. It watches and listens to the whole beat, start to finish, and BoothMate turns what it hears into your blueprint:</p>
 <ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px">
 <li class="bm-deliv" style="display: flex; gap: 14px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(245,197,66,.22); background: rgba(245,197,66,.03)"><span class="bm-goldtxt" style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; flex: none; width: 28px">01</span><span style="display: flex; flex-direction: column"><b style="font-weight: 600">Tempo and key</b><span style="color: #B4B4BE; font-size: 15px">with how sure the analyser is about each</span></span></li>
@@ -1019,8 +1020,10 @@ const bbPoll = (id, tries) => {
     bbPoll(id, tries + 1);
   }, 3000);
 };
+const BB_OPEN = false; // flip to true when Beat Breakdown launches (server also needs BEAT_BREAKDOWN_OPEN=true)
 const bbGo = async (e) => {
   if (e && e.preventDefault) e.preventDefault();
+  if (!BB_OPEN) { this.setState({ bbError: 'Beat Breakdown opens soon. Free previews aren’t open yet.' }); return; }
   const url = (this.st().bbUrl || '').trim();
   if (!url) { this.setState({ bbError: 'Paste a YouTube link first.' }); return; }
   if (this.st().bbBusy) return;
@@ -1040,6 +1043,7 @@ const bbGo = async (e) => {
   }
 };
 const bbUnlock = async () => {
+  if (!BB_OPEN) { this.setState({ bbError: 'Beat Breakdown opens soon. Checkout isn’t open yet.' }); return; }
   const st2 = this.st();
   const url = st2.bbVideo ? st2.bbVideo.url : (st2.bbUrl || '').trim();
   if (!url || st2.bbUnlockBusy) return;
@@ -1057,7 +1061,7 @@ const bbUnlock = async () => {
 return {
 accent: accent, accentGlow: glow, siteBase: this.bmApi(), linkTarget: this.bmOnSite() ? '_self' : '_blank',
 promptTabs: promptTabs, prompts: prompts,
-bbUrl: st.bbUrl, bbInput: (e) => this.setState({ bbUrl: e && e.target ? e.target.value : '', bbError: '' }), bbGo: bbGo, bbUnlock: bbUnlock, bbBusyAttr: st.bbBusy ? 'true' : 'false', bbBtnLabel: st.bbBusy ? 'Loading your beat…' : 'Preview it free', bbHasError: !!st.bbError, bbError: st.bbError,
+bbUrl: st.bbUrl, bbInput: (e) => this.setState({ bbUrl: e && e.target ? e.target.value : '', bbError: '' }), bbGo: bbGo, bbUnlock: bbUnlock, bbBusyAttr: st.bbBusy ? 'true' : 'false', bbBtnLabel: !BB_OPEN ? 'Opening soon' : st.bbBusy ? 'Loading your beat…' : 'Preview it free', bbHasError: !!st.bbError, bbError: st.bbError,
 bbHasVideo: !!st.bbVideo, bbEmbed: st.bbVideo ? 'https://www.youtube-nocookie.com/embed/' + st.bbVideo.id + '?rel=0' : '', bbVideoTitle: st.bbVideo ? (st.bbVideo.title || 'Your beat') : '',
 bbPreviewWaiting: st.bbWaiting, bbHasPreview: !!st.bbPreview, bbHook: st.bbPreview ? st.bbPreview.hook : '', bbStyle: st.bbPreview ? st.bbPreview.style : '', bbBpm: st.bbPreview ? Math.round(st.bbPreview.bpm) + ' BPM' : '', bbKey: st.bbPreview ? st.bbPreview.key : '',
 bbHasNote: !!st.bbNote, bbNote: st.bbNote, bbUnlockBusyAttr: st.bbUnlockBusy ? 'true' : 'false', bbUnlockLabel: st.bbUnlockBusy ? 'Opening checkout…' : 'Unlock the full blueprint · $22.99',

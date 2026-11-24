@@ -87,3 +87,7 @@ export async function refundSession(paid, reason) {
     "metadata[why]": String(reason || "breakdown failed").slice(0, 400),
   }});
 }
+
+// Beat Breakdown stays closed until BEAT_BREAKDOWN_OPEN=true is set in Netlify.
+export const bbClosed = () =>
+  process.env.BEAT_BREAKDOWN_OPEN === "true" ? null : json(503, { status: "closed", error: "Beat Breakdown opens soon." });

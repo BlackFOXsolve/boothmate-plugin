@@ -37,6 +37,7 @@ process.env.STRIPE_SECRET_KEY = "sk_test_x";
 process.env.GEMINI_API_KEY = "g_x";
 process.env.BEAT_BREAKDOWN_PRICE_ID = "price_x";
 process.env.URL = "https://boothmate.example";
+process.env.BEAT_BREAKDOWN_OPEN = "true";
 
 const { parseYouTube } = await import("../netlify/functions/lib/common.mjs");
 const checkout = (await import("../netlify/functions/checkout.mjs")).default;
@@ -165,4 +166,21 @@ test("free preview: validates, runs once per video, caches, and caps per visitor
   assert.equal(r.status, 429, "7th new preview in a day is capped");
   await runPreview(post("/x", { id: "ZZZZZZZZZZZ" }));
   assert.equal(calls.filter((c) => c.url.includes("generativelanguage")).length, n, "worker ignores jobs nobody started");
+});
+
+test("Beat Breakdown stays closed until BEAT_BREAKDOWN_OPEN=true", async () => {
+  delete process.env.BEAT_BREAKDOWN_OPEN;
+  try {
+    const { default: preview } = await import("../netlify/functions/preview.mjs");
+    const { default: checkout } = await import("../netlify/functions/checkout.mjs");
+    const body = JSON.stringify({ url: "https://www.youtube.com/watch?v=u1Gte5Jt-P4" });
+    const opts = { method: "POST", headers: { "content-type": "application/json" }, body };
+    for (const fn of [preview, checkout]) {
+      const r = await fn(new Request("https://boothmate.example/api/x", opts), {});
+      assert.equal(r.status, 503);
+      assert.equal((await r.json()).status, "closed");
+    }
+  } finally {
+    process.env.BEAT_BREAKDOWN_OPEN = "true";
+  }
 });

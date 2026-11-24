@@ -2,7 +2,7 @@
 // POST /api/preview { url } -> starts (or returns cached) teaser for the video
 // GET  /api/preview?v=<id> -> status / teaser
 // Cached per video and capped per visitor per day, so pasting is cheap for us.
-import { json, parseYouTube, youTubeInfo, previewStore, siteUrl, preflight } from "./lib/common.mjs";
+import { json, parseYouTube, youTubeInfo, previewStore, siteUrl, preflight, bbClosed } from "./lib/common.mjs";
 
 const DAILY_LIMIT = Number(process.env.PREVIEW_DAILY_LIMIT || 6);
 const STALE_MS = 5 * 60 * 1000;
@@ -19,6 +19,7 @@ export default async (req, context) => {
     return json(200, { status: stale ? "error" : rec.status, preview: rec.preview, video: rec.video, error: stale ? "The preview timed out. Try again." : rec.error });
   }
   if (req.method !== "POST") return json(405, { error: "Use GET or POST." });
+  const closed = bbClosed(); if (closed) return closed;
   if (!process.env.GEMINI_API_KEY) return json(503, { error: "Free previews are switched off for a moment. Please try again soon." });
   let body = {};
   try { body = await req.json(); } catch {}
