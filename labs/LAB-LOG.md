@@ -50,3 +50,20 @@ If a run fails with "incomplete", open the technical detail; MAX_TOKENS would me
 How Alan tests: open the preview /test.html, paste a link, wait 1-4 minutes, load the sounds in step 1, run the step 2 prompts in FL Studio, then A/B against the embedded video.
 
 Next: run u1Gte5Jt-P4 on the preview and compare it with the live preview's reading (Chicago drill 133). If the tempo still disagrees, consider a second, cheap tempo-only Gemini pass.
+
+### 2026-11-24 second run (reliability pass), PR #1
+Items 1-5 were already done by the first run, so this run hardened what Alan will hit in the morning. Same preview URL: https://deploy-preview-1--boothmate-d4e6.netlify.app/test.html. (Netlify "canceled" the preview for the log-only commit cec89dc because site/ hadn't changed. That's normal; the preview kept serving 4471a6e. This run's commit fecb5e8 changes site/, so a fresh preview builds.)
+
+Done
+1. **Tempo slips are fixed in code, not just in the prompt.** `reconcileTempo()` in `lib/prompt.mjs`: if the BPM falls outside the chosen BoothMate genre's range (drill 125-155, trap 125-175, boom bap 75-100, lo-fi 65-95, R&B 55-110, jersey club 125-150) but half or double falls inside, it uses that value. It also adds a sentence to `notes` ("Tempo corrected from 67 to 134 BPM... if it feels wrong, try 67") and lowers `bpm_confidence` from high to medium. Every prompt now uses the same BPM, not only the first.
+2. **Can't-do filter fixed.** "Add Fruity Reeverb 2 to the Pad track" used to slip through as a prompt (the filter only knew generic words like "reverb"). It now catches Fruity *, FLEX, Sytrus, Harmor, EQ, compressor, limiter, Gross Beat, Maximus and Pitcher. A doable prompt that only *mentions* an effect ("write dark chords... they'll sit under reverb") is no longer thrown out.
+3. **One automatic retry in test mode.** It covers a cut-off or malformed Gemini answer, 429 and 5xx, waiting 5 s first (`BB_RETRY_WAIT_MS`). It never retries blocked, private or missing-key errors. Gemini errors now start with the HTTP status, e.g. "Gemini 503: ...". The paid flow is unchanged and keeps its own retry-then-refund logic.
+4. **Free preview uses the same tempo guide** as the full breakdown, so the teaser and the full breakdown shouldn't disagree the way "180 melodic trap" and "133 Chicago drill" did.
+
+Tests: `cd site && npm test` 20/20 pass (4 new: tempo reconcile, the effect-mention filter, retry vs. no-retry, preview tempo rules). Python: 378 passed, 11 skipped. 2 failures in `test_offline.py` come only from `rtmidi` not being installable in this sandbox; there are no Python changes. Ran `sample-breakdown.json` through the new tidy-up: unchanged (133, drill), all 7 prompts kept.
+
+NOT verified: still no live Gemini call (the sandbox can't reach Google or netlify.app). The Netlify MCP doesn't show env-var scopes, so whether GEMINI_API_KEY applies to Deploy Previews is unconfirmed. test.html shows a warning if it doesn't.
+
+How Alan tests: same as above. Open the preview /test.html, paste a link, wait 1-4 minutes, load the sounds, copy the prompts and run them in FL Studio, then A/B against the video. If the result says "Tempo corrected", try both tempos against the video.
+
+Next: compare a real run of u1Gte5Jt-P4 with the 133 reading. If key or tempo still wanders between runs, add a cheap second Gemini pass that only asks for tempo and key.
