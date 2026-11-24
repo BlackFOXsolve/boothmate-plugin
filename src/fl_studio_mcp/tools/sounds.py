@@ -255,8 +255,10 @@ def _call(op: str, **params) -> dict:
     return get_bridge().call(protocol.CMD_BROWSER, {"op": op, **params})
 
 
-def load_into_channel(path: str, channel: int, roots: list[Path]) -> dict:
-    """Walk FL's Browser to `path` and load it into `channel`. Opens only the folders it needs and closes them afterwards."""
+def browse_and_enter(path: str, roots: list[Path]) -> dict:
+    """Walk FL's Browser to `path` and press Enter on it. Where FL puts it
+    depends on what is selected or open: select the target FIRST, in a
+    separate call. Opens only the folders it needs and closes them after."""
     segs = browser_segments(path, roots)
     if not segs:
         return {"ok": False, "error": "BoothMate can only load sounds from FL Studio's own "
@@ -302,11 +304,10 @@ def load_into_channel(path: str, channel: int, roots: list[Path]) -> dict:
     if not r.get("found"):
         _collapse(opened)
         return {"ok": False, "error": "Couldn't find '%s' in FL's Browser." % name, "trail": trail}
-    res = _call("load", channel=channel, expect=name)
+    res = _call("load", expect=name)
     _collapse(opened)
     out = {"ok": bool(res.get("loaded")) and not res.get("error"), "sound": name,
-           "channels_before": res.get("channels_before"),
-           "channels_after": res.get("channels_after"), "channel": res.get("channel")}
+           "channels_before": res.get("channels_before")}
     if res.get("error"):
         out["error"] = res["error"]
     return out
@@ -365,47 +366,148 @@ def _type_of(ch: int) -> int | None:
     return types[0] if types else None
 
 
-def place(path: str, ch: int, roots: list[Path], replace_instrument: bool = True) -> dict:
-    """Put one stock sound, instrument preset or effect on channel `ch` (an
-    effect goes on the channel's mixer insert) and check that FL did it."""
-    rel = _rel(path, roots) or ""
-    kind = kit_data.kind_of(rel)
-    name = os.path.basename(path)
-    stem = name.rsplit(".", 1)[0].lower()
-    if kind == "other":
-        return {"ok": False, "error": "BoothMate can't load %s (only sounds, instruments and effects)." % name}
-    if kind == "sample":
-        if _type_of(ch) not in (CT_SAMPLER, CT_AUDIOCLIP, None):
-            if not replace_instrument:
-                return {"ok": False, "error": "That channel holds an instrument, not a sampler."}
-            sampler = _existing(kit_data.SAMPLER, roots)
-            if not sampler:
-                return {"ok": False, "error": "Couldn't find FL's Sampler to swap the instrument for."}
-            r = load_into_channel(sampler, ch, roots)
-            if not r.get("ok") or _type_of(ch) != CT_SAMPLER:
-                return {"ok": False, "error": "Couldn't turn the channel into a sampler.", "step": r}
-        r = load_into_channel(path, ch, roots)
-        r["kind"] = "sample"
+def _wait(check, timeout: float = 3.0, step: float = 0.25):
+    """FL applies loads after the script call returns: poll until check()
+    gives a truthy value or time runs out. Returns the last value."""
+    end = time.time() + timeout
+    val = check()
+    while not val and time.time() < end:
+        time.sleep(step)
+        val = check()
+    return val
+
+
+def select_channel(ch: int) -> bool:
+    _call("select_channel", channel=ch)
+    return bool(_wait(lambda: _call("state").get("selected_channel") == ch, 1.5))
+
+
+def select_mixer(track: int) -> bool:
+    _call("select_mixer", track=track)
+    return bool(_wait(lambda: _call("state").get("mixer_track") == track, 1.5))
+
+
+def _count() -> int:
+    return int(_call("state").get("channel_count") or 0)
+
+
+def _name_of(ch: int) -> str:
+    return str((_call("channel_info", channel=ch).get("channel") or {}).get("name") or "")
+
+
+def load_into_channel(path: str, channel: int, roots: list[Path]) -> dict:
+    """Select `channel` (its own call), then walk the Browser and load."""
+    if not select_channel(channel):
+        return {"ok": False, "error": "FL didn't select channel %d." % channel}
+    r = browse_and_enter(path, roots)
+    r["channel"] = channel
+    return r
+
+
+def new_channel(path: str, roots: list[Path]) -> dict:
+    """Load an instrument preset with no instrument window open: FL makes a
+    NEW channel for it (verified FL 2026.1.7). Returns its index."""
+    _call("hide_editors")
+    before = _count()
+    r = browse_and_enter(path, roots)
+    if not r.get("ok"):
         return r
-    if kind == "instrument":
-        r = load_into_channel(path, ch, roots)
-        got = ((r.get("channel") or {}).get("name") or "").strip().lower()
+    after = _wait(lambda: (lambda n: n if n > before else 0)(_count()))
+    if not after:
+        return {"ok": False, "error": "FL didn't add a channel for %s." % os.path.basename(path)}
+    r.update(ok=True, channel=after - 1, new=True)
+    return r
+
+
+def place_instrument(path: str, ch: int | None, roots: list[Path]) -> dict:
+    """Instrument preset onto channel `ch` (its window is opened and focused,
+    so FL loads into it), or onto a new channel when `ch` is None. Falls back
+    to a new channel if FL doesn't take it on `ch`."""
+    stem = os.path.basename(path).rsplit(".", 1)[0].lower()
+    if ch is None:
+        r = new_channel(path, roots)
         r["kind"] = "instrument"
-        if r.get("ok") and got != stem:
-            # FL names the channel after the preset it loaded.
-            r.update(ok=False, error="FL didn't load %s onto the channel." % name)
         return r
-    # effect: lands on the selected channel's mixer insert
-    track = _routing().get(ch, 0)
+    _call("hide_editors")
+    select_channel(ch)
+    _call("focus_editor", channel=ch)
+    time.sleep(0.3)
+    before = _count()
+    r = browse_and_enter(path, roots)
+    if not r.get("ok"):
+        return r
+    _wait(lambda: _name_of(ch).strip().lower() == stem or _count() > before)
+    if _name_of(ch).strip().lower() == stem:
+        r.update(ok=True, channel=ch, kind="instrument")
+    elif _count() > before:
+        r.update(ok=True, channel=_count() - 1, new=True, kind="instrument",
+                 note="FL put it on a new channel instead of channel %d." % ch)
+    else:
+        r.update(ok=False, kind="instrument", error="FL didn't load %s." % os.path.basename(path))
+    _call("hide_editors")
+    return r
+
+
+def make_sampler(ch: int | None, roots: list[Path]) -> dict:
+    """Turn channel `ch` into a plain Sampler (or make a new Sampler channel)."""
+    sampler = _existing(kit_data.SAMPLER, roots)
+    if not sampler:
+        return {"ok": False, "error": "Couldn't find FL's Sampler."}
+    if ch is None:
+        return new_channel(sampler, roots)
+    r = place_instrument(sampler, ch, roots)
+    if r.get("ok") and _wait(lambda: _type_of(r["channel"]) == CT_SAMPLER):
+        return r
+    return {"ok": False, "error": "Couldn't turn channel %d into a sampler." % ch, "step": r}
+
+
+def place_sample(path: str, ch: int | None, roots: list[Path], replace_instrument: bool = True) -> dict:
+    """Sample onto channel `ch`; an instrument channel is swapped for a
+    Sampler first (if allowed); `ch` None makes a new Sampler channel."""
+    if ch is None or _type_of(ch) not in (CT_SAMPLER, CT_AUDIOCLIP, None):
+        if ch is not None and not replace_instrument:
+            return {"ok": False, "error": "That channel holds an instrument, not a sampler."}
+        s = make_sampler(ch, roots)
+        if not s.get("ok"):
+            return s
+        ch = s["channel"]
+    r = load_into_channel(path, ch, roots)
+    r["kind"] = "sample"
+    _call("hide_editors")
+    return r
+
+
+def place_effect(path: str, track: int, roots: list[Path]) -> dict:
+    """Effect preset onto mixer insert `track` (selected in its own call)."""
     if track <= 0:
         return {"ok": False, "error": "Route the channel to a mixer insert before adding effects."}
+    if not select_mixer(track):
+        return {"ok": False, "error": "FL didn't select mixer insert %d." % track}
     before = _plugins_on(track)
-    r = load_into_channel(path, ch, roots)
-    after = _plugins_on(track)
+    r = browse_and_enter(path, roots)
+    if not r.get("ok"):
+        return r
+    after = _wait(lambda: (lambda a: a if len(a) > len(before) else None)(_plugins_on(track))) or before
     r.update(kind="effect", mixer_track=track, effects=after)
-    if r.get("ok") and len(after) <= len(before):
-        r.update(ok=False, error="FL didn't add %s to mixer insert %d." % (name, track))
+    if len(after) <= len(before):
+        r.update(ok=False, error="FL didn't add %s to mixer insert %d." % (os.path.basename(path), track))
     return r
+
+
+def place(path: str, ch: int | None, roots: list[Path], replace_instrument: bool = True) -> dict:
+    """Load a stock sample, instrument preset or effect and check FL did it.
+    Samples/instruments go on channel `ch` (None = a new channel); effects on
+    the mixer insert channel `ch` is routed to."""
+    rel = _rel(path, roots) or ""
+    kind = kit_data.kind_of(rel)
+    if kind == "other":
+        return {"ok": False, "error": "BoothMate can't load %s (only sounds, instruments and effects)."
+                % os.path.basename(path)}
+    if kind == "sample":
+        return place_sample(path, ch, roots, replace_instrument)
+    if kind == "instrument":
+        return place_instrument(path, ch, roots)
+    return place_effect(path, _routing().get(ch, 0) if ch is not None else 0, roots)
 
 
 def _write(command, params):
@@ -437,7 +539,7 @@ def register(mcp: FastMCP) -> None:
     @mcp.tool(annotations={"title": "Load a sound, instrument or effect", **_WR})
     def fl_load_sound(
         sound: Annotated[str, Field(description="A path from fl_find_sounds (sample, instrument preset or effect preset), or search words like 'trap clap', 'dark piano', 'bell'.")],
-        channel: Annotated[str, Field(description="Channel to load into: its number (0 = first) or a name like 'Kick', 'Keys', '808'. Effects go on this channel's mixer insert.")],
+        channel: Annotated[str, Field(description="Channel to load into: its number (0 = first), a name like 'Kick', 'Keys', '808', or 'new' to add a new channel. Effects go on this channel's mixer insert.")],
         name: Annotated[str | None, Field(description="Rename the channel afterwards, e.g. 'Kick'.")] = None,
         mixer_track: Annotated[int | None, Field(ge=1, description="Route the channel to this mixer insert.")] = None,
         replace_instrument: Annotated[bool, Field(description="For a sample on an instrument channel: swap the instrument for FL's Sampler first.")] = False,
@@ -446,13 +548,13 @@ def register(mcp: FastMCP) -> None:
         Browser: a sample into a channel, an instrument preset onto a channel
         (FL Keys, 3x Osc, Sytrus, Sakura... replacing what was there), or an
         effect preset onto the channel's mixer insert. Checks that FL did it.
-        FL can't add new channels from a script, so the channel must exist."""
+        channel='new' adds a channel (FL makes one for an instrument; for a
+        sample BoothMate first adds a Sampler channel)."""
         roots = stock_roots()
         if not roots:
             return {"ok": False, "error": "Couldn't find FL Studio's sound folders on this computer."}
         if channel in (None, ""):
-            return {"ok": False, "error": "Name a channel to load into. FL Studio can't add new channels "
-                                          "from a script; ask the user to add an empty Sampler channel."}
+            channel = "new"
         path = sound if os.path.isfile(sound) else None
         if path is None:
             hits = search(sound, _patches(roots), 1)
@@ -460,7 +562,10 @@ def register(mcp: FastMCP) -> None:
                 return {"ok": False, "error": "No FL Studio stock sound matches '%s'." % sound}
             path = hits[0]["path"]
         chans = _channels()
-        if str(channel).strip().isdigit():
+        target: int | None
+        if str(channel).strip().lower() == "new":
+            target = None
+        elif str(channel).strip().isdigit():
             target = int(str(channel).strip())
         else:
             want = str(channel).strip().lower()
@@ -470,18 +575,22 @@ def register(mcp: FastMCP) -> None:
                 return {"ok": False, "error": "No channel named '%s'." % channel,
                         "channels": [c["name"] for c in chans]}
             target = pick[0]
-        if target >= len(chans):
+        if target is not None and target >= len(chans):
             return {"ok": False, "error": "There is no channel %d." % target}
         preview = safety.preview_write(tool="fl_load_sound", command=protocol.CMD_BROWSER,
                                        params={"op": "load", "channel": target, "sound": path})
         if preview is not None:
             return preview
-        if mixer_track:
+        if mixer_track and target is not None:
             _write(protocol.CMD_CHANNEL_LINK_MIXER, {"channel": target, "track": mixer_track})
         out = place(path, target, roots, replace_instrument)
         out["path"] = path
-        if out.get("ok") and name and out.get("kind") != "effect":
-            out["rename"] = _write(protocol.CMD_CHANNEL_SET_NAME, {"channel": target, "name": name})
+        ch = out.get("channel", target)
+        if out.get("ok") and out.get("kind") != "effect" and ch is not None:
+            if name:
+                out["rename"] = _write(protocol.CMD_CHANNEL_SET_NAME, {"channel": ch, "name": name})
+            if mixer_track and ch != target:
+                out["link"] = _write(protocol.CMD_CHANNEL_LINK_MIXER, {"channel": ch, "track": mixer_track})
         return out
 
     @mcp.tool(annotations={"title": "Load a starter kit", **_WR})
@@ -497,7 +606,8 @@ def register(mcp: FastMCP) -> None:
         Pad), each part on its own named mixer insert with a starting level
         and pan, and the kit's effects (reverbs, delay, 808 clipper). Uses
         the channels the project has, matched by name, and leaves out what
-        the user's FL edition doesn't include. Call before make_beat."""
+        the user's FL edition doesn't include. Parts with no channel get a
+        new one. Call before make_beat."""
         key = style.strip().lower().replace(" ", "_").replace("&", "n").replace("-", "_")
         if key in ("list", "") or key not in KITS:
             return {"ok": key == "list", "kits": {k: v["label"] for k, v in KITS.items()},
@@ -516,27 +626,32 @@ def register(mcp: FastMCP) -> None:
         if preview is not None:
             return preview
         filled, skipped, mixed, fx_added = [], [], [], []
+        names_now = [c["name"].strip().lower() for c in chans]
         for role in roles:
-            if role not in plan:
-                skipped.append({"role": role, "why": "no channel for it"})
-                continue
-            ch = plan[role]
             if role.lower() in skip:
-                skipped.append({"role": role, "channel": ch, "why": "kept as asked"})
+                skipped.append({"role": role, "channel": plan.get(role), "why": "kept as asked"})
                 continue
-            if role in kit["sounds"]:
+            drum = role in kit["sounds"]
+            if drum:
                 path = resolve_kit_sound(kit["sounds"][role], roots)
             else:
                 path = _existing(kit["instruments"][role], roots, edition)
             if not path:
-                skipped.append({"role": role, "channel": ch, "why": "no matching sound in this FL edition"})
+                skipped.append({"role": role, "why": "no matching sound in this FL edition"})
                 continue
-            r = place(path, ch, roots, replace_instrument=True)
+            ch = plan.get(role)
+            if not drum and role.lower() in names_now and ch is not None and names_now[ch] == role.lower():
+                # A previous kit already set this part up: keep the user's sound.
+                filled.append({"role": role, "channel": ch, "was": chans[ch]["name"], "sound": "(kept)"})
+                continue
+            r = place_sample(path, ch, roots) if drum else place_instrument(path, ch, roots)
             if not r.get("ok"):
                 skipped.append({"role": role, "channel": ch, "why": r.get("error", "load failed")})
                 continue
+            ch = r["channel"]
             _write(protocol.CMD_CHANNEL_SET_NAME, {"channel": ch, "name": role})
-            filled.append({"role": role, "channel": ch, "was": chans[ch]["name"],
+            was = chans[ch]["name"] if ch < len(chans) else "(new channel)"
+            filled.append({"role": role, "channel": ch, "was": was,
                            "sound": os.path.basename(path).rsplit(".", 1)[0]})
         done = {f["role"]: f["channel"] for f in filled}
         if mix and done:
@@ -571,13 +686,17 @@ def register(mcp: FastMCP) -> None:
                     path = _existing([rel], roots)
                     if not path:
                         continue
-                    r = place(path, done[role], roots)
+                    r = place_effect(path, ins, roots)
                     if r.get("ok"):
                         fx_added.append({"role": role, "insert": ins, "effect": os.path.basename(path).rsplit(".", 1)[0],
                                          "plugin": kit_data.plugin_of(rel)})
                         have.append(plug)
                     else:
                         skipped.append({"role": role, "effect": os.path.basename(path), "why": r.get("error")})
+        try:
+            _call("hide_editors")
+        except Exception:
+            pass
         return {"ok": bool(filled), "kit": kit["label"], "suggested_tempo": kit["tempo"],
                 "edition": edition or "unknown (assumed Producer)",
                 "filled": filled, "mixer": mixed, "effects": fx_added, "skipped": skipped}

@@ -314,6 +314,10 @@ _ROLE_WORDS = {
                "pluck", "strings", "organ", "guitar", "bell"),
 }
 _ORDER = ("kick", "snare", "clap", "open_hat", "hat", "808", "chords")
+# Exact channel names (what fl_load_kit names its parts) win over fuzzy
+# matches, so a kit's "Keys" beats an older "FL Keys" channel.
+_EXACT = {"kick": ("kick",), "snare": ("snare",), "clap": ("clap",), "open_hat": ("open hat",),
+          "hat": ("hi hat", "hihat", "hat"), "808": ("808",), "chords": ("keys",)}
 
 
 def match_channels(channels, overrides=None):
@@ -323,6 +327,16 @@ def match_channels(channels, overrides=None):
     for role, idx in (overrides or {}).items():
         out[role] = int(idx)
         used.add(int(idx))
+    for role in _ORDER:
+        if role in out:
+            continue
+        for ch in channels or []:
+            idx = ch.get("i", ch.get("index", ch.get("channel")))
+            if idx is not None and idx not in used and \
+                    (ch.get("name") or "").strip().lower() in _EXACT[role]:
+                out[role] = idx
+                used.add(idx)
+                break
     for role in _ORDER:
         if role in out:
             continue

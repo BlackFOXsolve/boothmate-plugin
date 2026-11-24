@@ -69,88 +69,6 @@ def test_resolve_kit_sound_prefers_listed_file_then_searches(tmp_path: Path):
     assert got.endswith("808 Kick.wav")
 
 
-def test_load_into_channel_walks_opens_and_closes(monkeypatch, tmp_path: Path):
-    root = tmp_path / "Patches"
-    kicks = root / "Packs" / "Drums" / "Kicks"
-    kicks.mkdir(parents=True)
-    (kicks / "22in Kick.wav").write_bytes(b"x")
-    (kicks / "707 Kick.wav").write_bytes(b"x")
-    # Fake Browser: a flat visible list with expandable folders.
-    tree = {"Packs": ["Drums"], "Drums": ["Kicks"], "Kicks": ["22in Kick.wav", "707 Kick.wav"]}
-    state = {"items": ["Current project", "Packs", "Plugin presets"], "pos": 0, "open": set(), "calls": []}
-
-    def rebuild():
-        out = []
-        def add(name):
-            out.append(name)
-            if name in state["open"]:
-                for c in tree.get(name, []):
-                    add(c)
-        for top in ["Current project", "Packs", "Plugin presets"]:
-            add(top)
-        state["items"] = out
-
-    def call(op, **p):
-        state["calls"].append(op)
-        items = state["items"]
-        cur = items[state["pos"]]
-        if op == "home":
-            state["pos"] = 0
-            return {"focused": True}
-        if op == "find":
-            d = p.get("direction", 1)
-            i = state["pos"]
-            while 0 <= i < len(items):
-                if items[i].lower() == p["name"].lower():
-                    state["pos"] = i
-                    return {"found": True, "steps": 1}
-                i += d
-            return {"found": False}
-        if op == "toggle":
-            state["open"] ^= {cur}
-            rebuild()
-            state["pos"] = state["items"].index(cur)
-            return {}
-        if op == "next_menu":
-            state["pos"] = min(state["pos"] + 1, len(state["items"]) - 1)
-            return {"caption": state["items"][state["pos"]]}
-        if op == "prev_menu":
-            state["pos"] = max(state["pos"] - 1, 0)
-            return {"caption": state["items"][state["pos"]]}
-        if op == "load":
-            assert cur == p["expect"]
-            return {"loaded": True, "channels_before": 7, "channels_after": 7,
-                    "channel": {"i": p["channel"], "name": cur}}
-        raise AssertionError(op)
-
-    monkeypatch.setattr(sounds, "_call", call)
-    # Drums starts already open: the loader must notice and not close it.
-    state["open"] = {"Drums"}
-    rebuild()
-    res = sounds.load_into_channel(str(kicks / "707 Kick.wav"), 3, [root])
-    assert res["ok"] is True and res["sound"] == "707 Kick.wav"
-    assert state["open"] == {"Drums"}
-
-
-def test_load_brings_fl_to_front_when_browser_has_no_focus(monkeypatch, tmp_path: Path):
-    root = tmp_path / "Patches"
-    (root / "Packs").mkdir(parents=True)
-    f = root / "Packs" / "a.wav"
-    f.write_bytes(b"x")
-    calls = {"front": 0, "home": 0}
-    monkeypatch.setattr(sounds, "bring_fl_to_front", lambda: calls.__setitem__("front", calls["front"] + 1) or True)
-    monkeypatch.setattr(sounds.time, "sleep", lambda s: None)
-
-    def call(op, **p):
-        if op == "home":
-            calls["home"] += 1
-            return {"focused": calls["front"] > 0}
-        return {"found": False}
-    monkeypatch.setattr(sounds, "_call", call)
-    res = sounds.load_into_channel(str(f), 0, [root])
-    assert calls == {"front": 1, "home": 2}
-    assert "Couldn't find the folder" in res["error"]
-
 
 from fl_studio_mcp.tools import kit_data
 
@@ -207,9 +125,106 @@ def test_pick_inserts_keeps_own_insert_and_avoids_others():
     assert out["Pad"] not in (9,) and len(set(out.values())) == 4
 
 
+class FakeFL:
+    """FL's Browser as observed on FL 2026.1.7: a flat list of visible items;
+    selection changes apply only AFTER the call returns; Enter puts a sample
+    in the selected channel, an instrument preset in the focused instrument
+    window (or a NEW channel when none is open), an effect on the selected
+    mixer track."""
+
+    def __init__(self, root, channels):
+        self.root = root
+        self.ch = [dict(c) for c in channels]
+        self.sel, self.pending_sel = 0, None
+        self.mix, self.pending_mix = 0, None
+        self.focused_editor = None
+        self.fx = {}
+        self.items, self.pos, self.open = [], 0, set()
+        self.routing = {}
+        self._rebuild()
+
+    def _tree(self, rel=""):
+        base = self.root / rel if rel else self.root
+        return sorted(p.name for p in base.iterdir())
+
+    def _rebuild(self):
+        out = []
+
+        def add(rel):
+            out.append((rel.split("/")[-1], rel))
+            if rel in self.open and (self.root / rel).is_dir():
+                for c in self._tree(rel):
+                    add(rel + "/" + c)
+        for top in self._tree():
+            add(top)
+        self.items = out
+
+    def __call__(self, op, **p):
+        if self.pending_sel is not None:
+            self.sel, self.pending_sel = self.pending_sel, None
+        if self.pending_mix is not None:
+            self.mix, self.pending_mix = self.pending_mix, None
+        cur_name, cur_rel = self.items[self.pos]
+        if op == "home":
+            self.pos = 0
+            return {"focused": True}
+        if op == "find":
+            d, i = p.get("direction", 1), self.pos
+            while 0 <= i < len(self.items):
+                if self.items[i][0].lower() == p["name"].lower():
+                    self.pos = i
+                    return {"found": True, "steps": 1}
+                i += d
+            return {"found": False}
+        if op == "toggle":
+            self.open ^= {cur_rel}
+            self._rebuild()
+            self.pos = [r for _, r in self.items].index(cur_rel)
+            return {}
+        if op in ("next_menu", "prev_menu"):
+            self.pos = max(0, min(len(self.items) - 1, self.pos + (1 if op == "next_menu" else -1)))
+            return {"caption": self.items[self.pos][0]}
+        if op == "select_channel":
+            self.pending_sel = p["channel"]
+            return {}
+        if op == "select_mixer":
+            self.pending_mix = p["track"]
+            return {}
+        if op == "hide_editors":
+            self.focused_editor = None
+            return {}
+        if op == "focus_editor":
+            self.focused_editor = p["channel"]
+            return {}
+        if op == "state":
+            return {"selected_channel": self.sel, "mixer_track": self.mix, "channel_count": len(self.ch)}
+        if op == "channel_info":
+            return {"channel": {"i": p["channel"], "name": self.ch[p["channel"]]["name"]}}
+        if op == "channel_types":
+            return {"types": [c["type"] for c in self.ch[p.get("start", 0):]], "total": len(self.ch)}
+        if op == "load":
+            assert cur_name == p["expect"]
+            stem = cur_name.rsplit(".", 1)[0]
+            if not cur_name.endswith(".fst"):
+                if self.ch[self.sel]["type"] == 0:
+                    self.ch[self.sel]["sample"] = cur_name
+            elif "/Effects/" in "/" + cur_rel:
+                self.fx.setdefault(self.mix, []).append(cur_rel.split("/")[2])
+            else:
+                typ = 0 if stem == "Sampler" else 2
+                if self.focused_editor is not None:
+                    self.ch[self.focused_editor].update(name=stem, type=typ, preset=stem)
+                else:
+                    self.ch.append({"name": stem, "type": typ, "preset": stem})
+            return {"loaded": True, "channels_before": len(self.ch)}
+        raise AssertionError(op)
+
+
 def _fake_patches(tmp_path):
     root = tmp_path / "Patches"
-    for rel in ["Packs/Drums/Kicks/808 Kick.wav", "Plugin database/Generators/Sampler/Sampler.fst",
+    for rel in ["Packs/Drums/Kicks/22in Kick.wav", "Packs/Drums/Kicks/808 Kick.wav",
+                "Packs/Drums/Hats/808 OH.wav",
+                "Plugin database/Generators/Sampler/Sampler.fst",
                 "Plugin presets/Generators/FL Keys/Dark Piano.fst",
                 "Plugin presets/Effects/Fruity Reeverb 2/Drum Room.fst"]:
         f = root / rel
@@ -218,51 +233,79 @@ def _fake_patches(tmp_path):
     return root
 
 
-def test_place_sample_on_instrument_swaps_in_sampler_first(monkeypatch, tmp_path):
+def _setup(monkeypatch, tmp_path, channels):
     root = _fake_patches(tmp_path)
-    types = {3: 2}
-    loads = []
+    fl = FakeFL(root, channels)
+    monkeypatch.setattr(sounds, "_call", fl)
+    monkeypatch.setattr(sounds.time, "sleep", lambda s: None)
+    monkeypatch.setattr(sounds, "_routing", lambda: dict(fl.routing))
+    monkeypatch.setattr(sounds, "_plugins_on", lambda t: list(fl.fx.get(t, [])))
+    return root, fl
 
-    def fake_load(path, ch, roots):
-        loads.append(os.path.basename(path))
-        if path.endswith("Sampler.fst"):
-            types[ch] = 0
-        return {"ok": True, "channel": {"i": ch, "name": "x"}}
-    monkeypatch.setattr(sounds, "load_into_channel", fake_load)
-    monkeypatch.setattr(sounds, "_type_of", lambda ch: types.get(ch, 0))
+
+RACK = [{"name": "Kick", "type": 0}, {"name": "Snare", "type": 0}, {"name": "Open Hat", "type": 0},
+        {"name": "808 Astronomic", "type": 2}, {"name": "FL Keys", "type": 2}]
+
+
+def test_sample_lands_on_the_target_not_the_old_selection(monkeypatch, tmp_path):
+    root, fl = _setup(monkeypatch, tmp_path, RACK)
+    r = sounds.place(str(root / "Packs/Drums/Hats/808 OH.wav"), 2, [root])
+    assert r["ok"] and fl.ch[2].get("sample") == "808 OH.wav"
+    assert "sample" not in fl.ch[0]
+    assert fl.open == set()
+
+
+def test_sample_on_instrument_channel_swaps_in_sampler(monkeypatch, tmp_path):
+    root, fl = _setup(monkeypatch, tmp_path, RACK)
     r = sounds.place(str(root / "Packs/Drums/Kicks/808 Kick.wav"), 3, [root])
-    assert r["ok"] and loads == ["Sampler.fst", "808 Kick.wav"]
-    r = sounds.place(str(root / "Packs/Drums/Kicks/808 Kick.wav"), 5, [root])
-    assert loads[-1] == "808 Kick.wav"
-    types[7] = 2
-    r = sounds.place(str(root / "Packs/Drums/Kicks/808 Kick.wav"), 7, [root], replace_instrument=False)
-    assert r["ok"] is False
+    assert r["ok"] and fl.ch[3]["type"] == 0 and fl.ch[3]["sample"] == "808 Kick.wav"
+    assert len(fl.ch) == len(RACK)
+    r = sounds.place(str(root / "Packs/Drums/Kicks/808 Kick.wav"), 4, [root], replace_instrument=False)
+    assert r["ok"] is False and fl.ch[4]["type"] == 2
 
 
-def test_place_instrument_checks_fl_renamed_channel(monkeypatch, tmp_path):
-    root = _fake_patches(tmp_path)
-    monkeypatch.setattr(sounds, "load_into_channel",
-                        lambda p, ch, roots: {"ok": True, "channel": {"i": ch, "name": "Dark Piano"}})
-    assert sounds.place(str(root / "Plugin presets/Generators/FL Keys/Dark Piano.fst"), 5, [root])["ok"]
-    monkeypatch.setattr(sounds, "load_into_channel",
-                        lambda p, ch, roots: {"ok": True, "channel": {"i": ch, "name": "FL Keys"}})
-    r = sounds.place(str(root / "Plugin presets/Generators/FL Keys/Dark Piano.fst"), 5, [root])
-    assert r["ok"] is False and "didn't load" in r["error"]
+def test_instrument_preset_goes_into_target_channel(monkeypatch, tmp_path):
+    root, fl = _setup(monkeypatch, tmp_path, RACK)
+    fl.focused_editor = 3
+    r = sounds.place(str(root / "Plugin presets/Generators/FL Keys/Dark Piano.fst"), 4, [root])
+    assert r["ok"] and r["channel"] == 4 and fl.ch[4]["preset"] == "Dark Piano"
+    assert fl.ch[3]["name"] == "808 Astronomic"
 
 
-def test_place_effect_needs_insert_and_checks_slot_added(monkeypatch, tmp_path):
-    root = _fake_patches(tmp_path)
-    fx = {4: ["Fruity Reeverb 2"]}
-    monkeypatch.setattr(sounds, "_routing", lambda: {3: 4, 2: 0})
-    monkeypatch.setattr(sounds, "_plugins_on", lambda t: list(fx.get(t, [])))
+def test_new_channel_for_instrument_and_for_sample(monkeypatch, tmp_path):
+    root, fl = _setup(monkeypatch, tmp_path, RACK)
+    fl.focused_editor = 4
+    r = sounds.place(str(root / "Plugin presets/Generators/FL Keys/Dark Piano.fst"), None, [root])
+    assert r["ok"] and r["new"] and r["channel"] == len(RACK) and fl.ch[4]["name"] == "FL Keys"
+    r = sounds.place(str(root / "Packs/Drums/Kicks/22in Kick.wav"), None, [root])
+    assert r["ok"] and fl.ch[r["channel"]]["sample"] == "22in Kick.wav" and fl.ch[r["channel"]]["type"] == 0
 
-    def fake_load(path, ch, roots):
-        fx[4].append("Fruity Reeverb 2")
-        return {"ok": True}
-    monkeypatch.setattr(sounds, "load_into_channel", fake_load)
+
+def test_effect_goes_on_the_channels_own_mixer_insert(monkeypatch, tmp_path):
+    root, fl = _setup(monkeypatch, tmp_path, RACK)
+    fl.routing = {1: 2, 0: 0}
+    fl.mix = 4
     verb = str(root / "Plugin presets/Effects/Fruity Reeverb 2/Drum Room.fst")
-    r = sounds.place(verb, 3, [root])
-    assert r["ok"] and r["mixer_track"] == 4 and len(r["effects"]) == 2
-    assert sounds.place(verb, 2, [root])["ok"] is False   # channel on master
-    monkeypatch.setattr(sounds, "load_into_channel", lambda p, ch, roots: {"ok": True})
-    assert sounds.place(verb, 3, [root])["ok"] is False   # nothing added
+    r = sounds.place(verb, 1, [root])
+    assert r["ok"] and r["mixer_track"] == 2 and fl.fx == {2: ["Fruity Reeverb 2"]}
+    assert sounds.place(verb, 0, [root])["ok"] is False
+
+
+def test_load_brings_fl_to_front_when_browser_has_no_focus(monkeypatch, tmp_path):
+    root = tmp_path / "Patches"
+    (root / "Packs").mkdir(parents=True)
+    f = root / "Packs" / "a.wav"
+    f.write_bytes(b"x")
+    calls = {"front": 0, "home": 0}
+    monkeypatch.setattr(sounds, "bring_fl_to_front", lambda: calls.__setitem__("front", calls["front"] + 1) or True)
+    monkeypatch.setattr(sounds.time, "sleep", lambda s: None)
+
+    def call(op, **p):
+        if op == "home":
+            calls["home"] += 1
+            return {"focused": calls["front"] > 0}
+        return {"found": False}
+    monkeypatch.setattr(sounds, "_call", call)
+    res = sounds.browse_and_enter(str(f), [root])
+    assert calls == {"front": 1, "home": 2}
+    assert "Couldn't find the folder" in res["error"]
