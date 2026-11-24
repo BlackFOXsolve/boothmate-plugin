@@ -17,7 +17,9 @@ export async function geminiVideo({ url, prompt, schema, seconds }) {
           { text: prompt },
         ],
       }],
-      generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature: 0.4 },
+      // Low temperature: the same video should give the same style, tempo and key
+      // on every run (a 180-vs-133 BPM disagreement is what we're guarding against).
+      generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature: geminiTemperature() },
     }),
   });
   const raw = await r.text();
@@ -31,6 +33,12 @@ export async function geminiVideo({ url, prompt, schema, seconds }) {
   if (!text) throw new Error(`Gemini returned no answer (finishReason ${cand?.finishReason || "none"})`);
   try { return JSON.parse(text); }
   catch { throw new Error(`Gemini's answer was cut off or malformed (finishReason ${cand?.finishReason || "unknown"})`); }
+}
+
+export function geminiTemperature() {
+  const raw = String(process.env.GEMINI_TEMPERATURE ?? "").trim();
+  const t = Number(raw);
+  return raw && Number.isFinite(t) && t >= 0 && t <= 2 ? t : 0.2;
 }
 
 // One automatic retry for hiccups that usually clear on a second try (answer cut
@@ -59,6 +67,9 @@ export function friendly(e) {
   const m = String(e?.message || e);
   if (/GEMINI_API_KEY is not set/.test(m)) return "The analyser isn't switched on for this site yet. Please try again later.";
   if (/cut off|malformed|no answer|isn't JSON|MAX_TOKENS/i.test(m)) return "The analyser's answer came back incomplete. Try again; it usually works the second time.";
+  // Gemini busy/down first: a 503 "Service Unavailable" must not read as "can't open this video".
+  if (/Gemini (5\d\d|429)\b|overloaded|RESOURCE_EXHAUSTED|quota|rate.?limit/i.test(m)) return "Our analyser is busy right now. Try again in a minute.";
+  if (/fetch failed|ECONNRESET|socket|deadline|timed? ?out/i.test(m)) return "We lost the connection to the analyser. Try again in a minute.";
   if (/blocked|SAFETY|RECITATION/i.test(m)) return "The analyser declined this video. Try a different upload of the beat, ideally an instrumental.";
   if (/too long|duration|exceeds|token count/i.test(m)) return "This video is too long for the analyser. Try a video under 10 minutes.";
   if (/private|unavailable|not found|permission|youtube/i.test(m)) return "Gemini couldn't open this video. It may be private or blocked in some countries.";

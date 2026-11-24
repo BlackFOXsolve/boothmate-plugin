@@ -384,3 +384,25 @@ test("free preview uses the same tempo rules as the full breakdown", () => {
   assert.match(PREVIEW_PROMPT, /Half\/double-time check/);
   assert.match(PREVIEW_PROMPT, /Chicago drill: about 130-150/);
 });
+
+test("Gemini runs at a low, steady temperature and errors read correctly", async () => {
+  const { friendly, geminiTemperature, geminiVideo } = await import("../netlify/functions/lib/gemini.mjs");
+  delete process.env.GEMINI_TEMPERATURE;
+  assert.equal(geminiTemperature(), 0.2);
+  process.env.GEMINI_TEMPERATURE = "0.5"; assert.equal(geminiTemperature(), 0.5);
+  process.env.GEMINI_TEMPERATURE = "hot"; assert.equal(geminiTemperature(), 0.2);
+  process.env.GEMINI_TEMPERATURE = ""; assert.equal(geminiTemperature(), 0.2);
+  delete process.env.GEMINI_TEMPERATURE;
+  let sent = null;
+  const prev = gemini;
+  gemini = (opts) => { sent = JSON.parse(opts.body); return prev(opts); };
+  try { await geminiVideo({ url: "https://www.youtube.com/watch?v=u1Gte5Jt-P4", prompt: "x", schema: {}, seconds: 60 }); }
+  finally { gemini = prev; }
+  assert.equal(sent.generationConfig.temperature, 0.2);
+  // A Gemini outage must not be blamed on the video.
+  assert.match(friendly(new Error("Gemini 503: Service Unavailable")), /busy/);
+  assert.match(friendly(new Error("Gemini 429: RESOURCE_EXHAUSTED")), /busy/);
+  assert.match(friendly(new Error("fetch failed")), /connection/);
+  assert.match(friendly(new Error("Gemini 400: video is private")), /private/);
+  assert.match(friendly(new Error("Gemini's answer was cut off or malformed (finishReason MAX_TOKENS)")), /incomplete/);
+});
