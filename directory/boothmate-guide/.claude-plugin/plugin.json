@@ -3,9 +3,21 @@
   "displayName": "BoothMate Guide",
   "version": "0.1.0",
   "description": "A beat-making coach for FL Studio beginners and rappers: genre drum patterns, chord progressions for any mood and key, 808s, and studio workflow, explained step by step.",
-  "author": { "name": "BlackAcre AI LLC", "email": "contact@blackfoxsolve.com" },
+  "author": {
+    "name": "BlackAcre AI LLC",
+    "email": "contact@blackfoxsolve.com"
+  },
   "homepage": "https://github.com/BlackFOXsolve/boothmate-plugin",
   "repository": "https://github.com/BlackFOXsolve/boothmate-plugin",
   "license": "MIT",
-  "keywords": ["fl-studio", "beats", "hip-hop", "music-production", "beginners"]
+  "keywords": [
+    "fl-studio",
+    "beats",
+    "hip-hop",
+    "music-production",
+    "beginners"
+  ],
+  "privacyPolicyUrl": "https://github.com/BlackFOXsolve/boothmate-plugin/tree/main/directory/boothmate-guide#privacy-policy",
+  "supportUrl": "https://github.com/BlackFOXsolve/boothmate-plugin/issues",
+  "documentationUrl": "https://github.com/BlackFOXsolve/boothmate-plugin/tree/main/directory/boothmate-guide#readme"
 }
