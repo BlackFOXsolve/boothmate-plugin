@@ -15,16 +15,15 @@ Then fully quit and reopen Claude so BoothMate's server can start.
 Install loopMIDI (tobias-erichsen.de). Delete its default port, then add two ports named exactly `FLStudioMCP RX` and `FLStudioMCP TX`. Keep loopMIDI running (it can start with Windows).
 
 ## 3. Ask Claude to set up BoothMate
-Call `setup_boothmate`, then `open_fl_studio`. BoothMate installs its FL Studio scripts, opens FL Studio, closes the welcome window and connects. If FL Studio was already open, ask the user to save, then `open_fl_studio` with restart=true. On a Mac, FL links BoothMate by itself; there's nothing to set in MIDI Settings.
+Call `setup_boothmate`, then `open_fl_studio`. BoothMate installs its FL Studio scripts, opens FL Studio, closes the welcome window and connects. If FL Studio was already open, ask the user to save, then `open_fl_studio` with restart=true. 
 
-## 4. Windows only: switch it on in FL Studio
-Options > MIDI Settings:
-- Input: select `FLStudioMCP RX`, turn on Enable, set Controller type to **FLStudioMCP**, pick a Port number.
-- Output: select `FLStudioMCP TX` and give it the same Port number.
-
-On a Mac there's nothing to do here: BoothMate creates its own ports and FL links them.
+## 4. Switch it on in FL Studio (once)
+FL Studio should link BoothMate by itself, but FL Studio 2026.1.7 on macOS was seen not to. If `studio_check` still says NO_HEARTBEAT after a restart, walk the user through Options > MIDI Settings:
+- Input: select `BoothMate` (Mac) or `FLStudioMCP RX` (Windows), turn on Enable, set Controller type to **FLStudioMCP**, set Port to 0.
+- Output: select `BoothMate` (Mac) or `FLStudioMCP TX` (Windows) and set its Port to the same number.
 
 ## 5. Mac only: allow keystrokes
+System Settings > Privacy & Security: turn on Claude under Accessibility, and under Automation > Claude turn on System Events. BoothMate's error names whichever one is missing.
 System Settings > Privacy & Security > Accessibility: turn on Claude. This lets chords, 808s and melodies be applied.
 
 ## 6. Each FL session: arm the piano roll
