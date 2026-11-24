@@ -55,6 +55,7 @@ from .tools import transport as transport_tools
 from .tools import capabilities as capabilities_tools
 from .tools import loader as loader_tools
 from .tools import sounds as sounds_tools
+from .tools import loops as loops_tools
 from .tools import playlist as playlist_tools
 from .tools import vst as vst_tools
 
@@ -70,8 +71,10 @@ BEGINNERS FIRST
   plain language, and prefer the one-call tools: make_beat, write_drums,
   write_chords, write_808, beat_theory, and booth (run it back / from the
   top / punch in). Before the first beat, call fl_load_kit with the style
-  (dark_trap, drill, boom_bap, rnb) so the drums and 808 use sounds that fit;
-  swap single sounds with fl_find_sounds + fl_load_sound. Reach for the low-level fl_* tools only when those can't
+  (dark_trap, drill, boom_bap, rnb): it loads matched drums, 808,
+  instruments, mixer levels and effects. Swap single sounds, instruments or
+  effects with fl_find_sounds + fl_load_sound. To build a beat around a
+  sample loop the user downloaded, call fl_build_around_loop. Reach for the low-level fl_* tools only when those can't
   do what was asked. Tell the user what you're about to make before writing,
   and remind them "undo" works (fl_rollback_last_change).
 
@@ -82,11 +85,11 @@ CONNECTION
   opening FL Studio. `fl-studio-mcp doctor` re-checks at any time.
 
 LIMITS YOU SHOULD KNOW ABOUT (these are FL API limitations, not server bugs)
-  - Cannot load new VST/AU plugin instances. You can only control plugins
-    that already exist in the project.
-  - Can load FL Studio's own stock samples into existing sampler channels
-    (fl_load_sound, fl_load_kit), but cannot add new channels, load the
-    user's own audio files, or render audio.
+  - Cannot load third-party VST/AU plugins. FL Studio's OWN instruments
+    and effects (with their presets) can be loaded via fl_load_sound.
+  - Can load FL Studio's own samples, instruments and effects into existing
+    channels and their mixer inserts (fl_load_sound, fl_load_kit), but
+    cannot add new channels, load the user's own audio files, or render audio.
   - Patterns: fl_arrange_new_pattern names and selects the next EMPTY
     pattern, fl_arrange_clone_pattern copies one. Patterns cannot be deleted.
   - FL refuses every write while a dialog is open (the welcome screen
@@ -123,6 +126,7 @@ def build_server() -> FastMCP:
     steps_tools.register(mcp)       # Step sequencer: read/write drum steps (safety layer)
     drums_tools.register(mcp)       # Drums to MIDI, optionally into the step sequencer
     sounds_tools.register(mcp)      # 0.1.6: load stock sounds + starter kits via FL's Browser
+    loops_tools.register(mcp)       # 0.1.9: build a beat around a downloaded loop
     pattern_tools.register(mcp)     # E-2: pattern list/select/rename/get_length
     capabilities_tools.register(mcp)
     loader_tools.register(mcp)

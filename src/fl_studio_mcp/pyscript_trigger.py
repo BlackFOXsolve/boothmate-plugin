@@ -35,7 +35,7 @@ def mac_permission_hint(stderr: str) -> str:
             "Privacy & Security, under both Accessibility and Automation > System Events.")
 
 
-def _trigger_macos(settle=0.35):
+def _trigger_macos(settle=0.6):
     """Focus FL Studio on macOS and send Cmd+Opt+Y."""
     try:
         subprocess.check_call(
@@ -173,7 +173,7 @@ def _trigger_windows(settle=0.35):
     }
 
 
-def trigger_run_last_script(settle=0.35):
+def trigger_run_last_script(settle=0.6):
     """Focus FL Studio and send the platform "Run last script again" shortcut."""
     if sys.platform == "win32":
         return _trigger_windows(settle)

@@ -1627,6 +1627,10 @@ def _browser_state():
         out["focused_window"] = ui.getFocusedFormID()
     except Exception:
         pass
+    try:
+        out["mixer_track"] = mixer.trackNumber()
+    except Exception:
+        pass
     return out
 
 
@@ -1727,8 +1731,10 @@ def _h_browser(p):
     Single steps: state, show, next, prev, next_menu, prev_menu, tab_right,
     tab_left, tab_first, toggle (value -1/0/1), preview, select, enter.
     Compound (one round trip): home, find (name, direction), reset,
-    load (channel >= 0 = load into that channel; -1 = nothing selected,
-    to see if FL makes a new channel), channel_types."""
+    select_channel, select_mixer, hide_editors, focus_editor, undo, escape,
+    load (Enter on
+    the highlighted item; select first, in a separate call), channel_info,
+    channel_types."""
     op = str(p.get("op", "state"))
     shift = bool(p.get("shift", False))
     res = {"op": op}
@@ -1763,16 +1769,44 @@ def _h_browser(p):
         elif op == "reset":
             _browser_reset()
             res["focused"] = _browser_focus()
+        elif op == "select_channel":
+            # Selection must land in its own call: FL applies it after the
+            # script returns, so an Enter in the same call hits the OLD
+            # selection (verified FL 2026.1.7).
+            channels.selectOneChannel(int(p["channel"]))
+        elif op == "select_mixer":
+            # setTrackNumber moves the mixer's UI selection (where browser
+            # effects land); setActiveTrack alone didn't always (FL 2026.1.7).
+            t = int(p["track"])
+            try:
+                mixer.setTrackNumber(t, getattr(midi, "curfxScrollToMakeVisible", 1))
+            except Exception:
+                pass
+            fn = getattr(mixer, "setActiveTrack", None)
+            if fn is not None:
+                try:
+                    fn(t)
+                except Exception:
+                    pass
+        elif op == "hide_editors":
+            # Instrument presets go to the focused instrument window, or to a
+            # NEW channel when none is open.
+            for i in range(channels.channelCount()):
+                try:
+                    channels.showEditor(i, 0)
+                except Exception:
+                    pass
+        elif op == "focus_editor":
+            ch = int(p["channel"])
+            channels.showEditor(ch, 1)
+            fn = getattr(channels, "focusEditor", None)
+            if fn is not None:
+                fn(ch)
         elif op == "load":
-            ch = int(p.get("channel", -1))
+            # Press Enter on the highlighted Browser item. Never changes the
+            # selection itself (see select_channel / select_mixer).
             want = str(p.get("expect", "")).strip().lower()
-            before = channels.channelCount()
-            if ch >= 0:
-                if ch >= before:
-                    raise _ClientError("No channel %d" % ch)
-                channels.selectOneChannel(ch)
-            else:
-                channels.deselectAll()
+            res["channels_before"] = channels.channelCount()
             if not _browser_focus():
                 res["loaded"] = False
                 res["error"] = "Browser didn't take focus; nothing loaded."
@@ -1782,12 +1816,14 @@ def _h_browser(p):
             else:
                 ui.enter()
                 res["loaded"] = True
-            after = channels.channelCount()
-            res["channels_before"], res["channels_after"] = before, after
-            target = ch if ch >= 0 else (after - 1 if after > before else -1)
-            if target >= 0:
-                res["channel"] = _channel_info(target)
             _browser_reset()
+        elif op == "undo":
+            # Revert the last action (a load that landed in the wrong place).
+            general.undoUp()
+        elif op == "escape":
+            ui.escape()
+        elif op == "channel_info":
+            res["channel"] = _channel_info(int(p["channel"]))
         elif op == "channel_types":
             start = max(0, int(p.get("start", 0)))
             n = channels.channelCount()

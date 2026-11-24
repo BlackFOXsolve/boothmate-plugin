@@ -51,9 +51,9 @@ def apply_notes(notes, mode="replace", trigger=True, quantize=None, snap_ends=Fa
         # auto-opened by the caller, but the shortcut only fires OUR script if
         # MCP_Apply was run once this FL session (no API to arm it). So if notes
         # don't appear, that one-time arm is the cause.
-        result["setup"] = ("If notes did not appear: run 'MCP Apply' ONCE from the "
-                           "Piano roll Scripting menu this FL session (the only "
-                           "manual step -- arms the shortcut; no FL API to automate it).")
+        result["setup"] = ("If notes did not appear: in the Piano roll, open its top-left "
+                           "menu > Tools > Scripts > MCP_Apply ONCE this FL session (the "
+                           "only manual step -- it arms the shortcut; no FL API can do it).")
         if not result["triggered"]:
             result["hint"] = (
                 "Notes written but auto-trigger is unsupported here. Click "
