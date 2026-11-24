@@ -23,6 +23,7 @@ Act as a friendly studio engineer for someone who may never have used FL Studio.
 | "chords", "make it sadder", "different progression" | `write_chords` with a new mood or custom `degrees` |
 | "808", "bass", "make the 808 slide" | `write_808` (drill genre slides) |
 | "add a melody", "hook melody" | `beat_theory` for the key's scale and chords, then compose notes yourself and write them with `fl_write_piano_roll_notes` into the melody channel (select it with `fl_arrange_select_channel`). Land chord tones on beats 1 and 3. |
+| "find a sample", "build a beat around this loop", "flip this sample" | Search the web for a loop the user can legally use (royalty-free, e.g. Looperman), show the license, and ask before downloading; the user signs in to the site themselves. Then `fl_build_around_loop` (sound = "latest download" or the path, genre). It reads the loop's tempo/key/bass, loads it, arranges intro → drop, puts the 808 on the loop's bass note and mutes clashing parts. Load a kit first. Then `fl_play`. |
 | "what styles can you do" | `beat_styles` |
 | "different sounds", "harder kick", "darker piano", "load a trap kit", "add reverb" | `fl_load_kit` for a whole setup, or `fl_find_sounds` + `fl_load_sound` for one channel or effect |
 | "faster", "140" | `fl_set_tempo` |

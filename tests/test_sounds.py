@@ -90,7 +90,9 @@ def test_edition_gating():
     harm = "Plugin presets/Generators/Harmor/Bell/Cursed bells.fst"
     assert kit_data.allowed(osc, "fruity") and not kit_data.allowed(sy, "fruity")
     assert kit_data.allowed(sy, "producer") and not kit_data.allowed(harm, "producer")
-    assert kit_data.allowed(harm, "trial") and kit_data.allowed(harm, "all_plugins")
+    assert not kit_data.allowed(harm, "trial") and kit_data.allowed(harm, "all_plugins")
+    sak = "Plugin presets/Generators/Sakura/Default/Smoker Flute.fst"
+    assert not kit_data.allowed(sak, "trial") and kit_data.allowed(sak, "signature")
     assert kit_data.allowed(sy, None) and not kit_data.allowed(harm, None)
 
 
@@ -141,6 +143,8 @@ class FakeFL:
         self.fx = {}
         self.items, self.pos, self.open = [], 0, set()
         self.routing = {}
+        self.history = []
+        self.new_when_focused = False
         self._rebuild()
 
     def _tree(self, rel=""):
@@ -212,11 +216,18 @@ class FakeFL:
                 self.fx.setdefault(self.mix, []).append(cur_rel.split("/")[2])
             else:
                 typ = 0 if stem == "Sampler" else 2
-                if self.focused_editor is not None:
-                    self.ch[self.focused_editor].update(name=stem, type=typ, preset=stem)
-                else:
+                self.history.append([dict(c) for c in self.ch])
+                if self.new_when_focused and self.focused_editor is not None:
                     self.ch.append({"name": stem, "type": typ, "preset": stem})
+                else:
+                    self.ch[self.sel].update(name=stem, type=typ, preset=stem, sample=None)
             return {"loaded": True, "channels_before": len(self.ch)}
+        if op == "undo":
+            if self.history:
+                self.ch = self.history.pop()
+            return {}
+        if op == "escape":
+            return {}
         raise AssertionError(op)
 
 
@@ -240,6 +251,12 @@ def _setup(monkeypatch, tmp_path, channels):
     monkeypatch.setattr(sounds.time, "sleep", lambda s: None)
     monkeypatch.setattr(sounds, "_routing", lambda: dict(fl.routing))
     monkeypatch.setattr(sounds, "_plugins_on", lambda t: list(fl.fx.get(t, [])))
+    monkeypatch.setattr(sounds, "get_bridge", lambda: None)
+    monkeypatch.setattr(sounds, "fetch_all_pages", lambda b, cmd, key: {key: [
+        {"channel": i, "name": c["name"], "target_mixer_track": fl.routing.get(i, 0)}
+        for i, c in enumerate(fl.ch)]})
+    monkeypatch.setattr(sounds, "_write", lambda cmd, p: fl.routing.__setitem__(p["channel"], p["track"])
+                        if "track" in p else None)
     return root, fl
 
 
@@ -264,21 +281,43 @@ def test_sample_on_instrument_channel_swaps_in_sampler(monkeypatch, tmp_path):
     assert r["ok"] is False and fl.ch[4]["type"] == 2
 
 
-def test_instrument_preset_goes_into_target_channel(monkeypatch, tmp_path):
+def test_instrument_preset_goes_into_target_channel_and_keeps_routing(monkeypatch, tmp_path):
     root, fl = _setup(monkeypatch, tmp_path, RACK)
-    fl.focused_editor = 3
+    fl.routing = {4: 6}
     r = sounds.place(str(root / "Plugin presets/Generators/FL Keys/Dark Piano.fst"), 4, [root])
     assert r["ok"] and r["channel"] == 4 and fl.ch[4]["preset"] == "Dark Piano"
     assert fl.ch[3]["name"] == "808 Astronomic"
+    assert fl.routing[4] == 6
 
 
-def test_new_channel_for_instrument_and_for_sample(monkeypatch, tmp_path):
+def test_load_that_lands_on_wrong_channel_is_undone(monkeypatch, tmp_path):
     root, fl = _setup(monkeypatch, tmp_path, RACK)
-    fl.focused_editor = 4
+    real = fl.__call__
+
+    def stubborn(op, **p):
+        if op == "select_channel":
+            return {}                     # FL ignores the selection
+        return real(op, **p)
+    monkeypatch.setattr(sounds, "_call", stubborn)
+    monkeypatch.setattr(sounds, "select_channel", lambda ch: True)
+    fl.sel = 0
+    before = [dict(c) for c in fl.ch]
+    r = sounds.place(str(root / "Plugin presets/Generators/FL Keys/Dark Piano.fst"), 4, [root])
+    assert r["ok"] is False
+    assert [c["name"] for c in fl.ch] == [c["name"] for c in before]
+
+
+def test_new_channel_when_fl_adds_one_and_undo_when_it_replaces(monkeypatch, tmp_path):
+    root, fl = _setup(monkeypatch, tmp_path, RACK)
+    fl.new_when_focused = True
     r = sounds.place(str(root / "Plugin presets/Generators/FL Keys/Dark Piano.fst"), None, [root])
     assert r["ok"] and r["new"] and r["channel"] == len(RACK) and fl.ch[4]["name"] == "FL Keys"
     r = sounds.place(str(root / "Packs/Drums/Kicks/22in Kick.wav"), None, [root])
     assert r["ok"] and fl.ch[r["channel"]]["sample"] == "22in Kick.wav" and fl.ch[r["channel"]]["type"] == 0
+    root2, fl2 = _setup(monkeypatch, tmp_path / "b", RACK)
+    names = [c["name"] for c in fl2.ch]
+    r = sounds.place(str(root2 / "Plugin presets/Generators/FL Keys/Dark Piano.fst"), None, [root2])
+    assert r["ok"] is False and [c["name"] for c in fl2.ch] == names
 
 
 def test_effect_goes_on_the_channels_own_mixer_insert(monkeypatch, tmp_path):
@@ -309,3 +348,23 @@ def test_load_brings_fl_to_front_when_browser_has_no_focus(monkeypatch, tmp_path
     res = sounds.browse_and_enter(str(f), [root])
     assert calls == {"front": 1, "home": 2}
     assert "Couldn't find the folder" in res["error"]
+
+
+def test_find_channel_prefers_exact_name_over_number():
+    names = ["Kick", "808", "Snare", "FL Keys", "Keys"]
+    assert sounds.find_channel(names, "808") == 1
+    assert sounds.find_channel(names, "3") == 3
+    assert sounds.find_channel(names, "keys") == 4
+    assert sounds.find_channel(names, "snar") == 2
+    assert sounds.find_channel(names, "new") is None
+    assert sounds.find_channel(names, "Bell") == -1
+
+
+def test_browser_segments_for_fl_audio_folder(monkeypatch, tmp_path):
+    from fl_studio_mcp import paths
+    il = tmp_path / "Image-Line"
+    f = il / "FL Studio" / "Audio" / "BoothMate" / "loop.wav"
+    f.parent.mkdir(parents=True)
+    f.write_bytes(b"x")
+    monkeypatch.setattr(paths, "image_line_dirs", lambda: [il])
+    assert sounds.browser_segments(str(f), []) == ["Audio", "BoothMate", "loop.wav"]

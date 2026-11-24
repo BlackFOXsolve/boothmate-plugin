@@ -1731,7 +1731,8 @@ def _h_browser(p):
     Single steps: state, show, next, prev, next_menu, prev_menu, tab_right,
     tab_left, tab_first, toggle (value -1/0/1), preview, select, enter.
     Compound (one round trip): home, find (name, direction), reset,
-    select_channel, select_mixer, hide_editors, focus_editor, load (Enter on
+    select_channel, select_mixer, hide_editors, focus_editor, undo, escape,
+    load (Enter on
     the highlighted item; select first, in a separate call), channel_info,
     channel_types."""
     op = str(p.get("op", "state"))
@@ -1774,13 +1775,19 @@ def _h_browser(p):
             # selection (verified FL 2026.1.7).
             channels.selectOneChannel(int(p["channel"]))
         elif op == "select_mixer":
+            # setTrackNumber moves the mixer's UI selection (where browser
+            # effects land); setActiveTrack alone didn't always (FL 2026.1.7).
             t = int(p["track"])
+            try:
+                mixer.setTrackNumber(t, getattr(midi, "curfxScrollToMakeVisible", 1))
+            except Exception:
+                pass
             fn = getattr(mixer, "setActiveTrack", None)
             if fn is not None:
-                fn(t)
-            else:
-                mixer.deselectAll()
-                mixer.selectTrack(t)
+                try:
+                    fn(t)
+                except Exception:
+                    pass
         elif op == "hide_editors":
             # Instrument presets go to the focused instrument window, or to a
             # NEW channel when none is open.
@@ -1810,6 +1817,11 @@ def _h_browser(p):
                 ui.enter()
                 res["loaded"] = True
             _browser_reset()
+        elif op == "undo":
+            # Revert the last action (a load that landed in the wrong place).
+            general.undoUp()
+        elif op == "escape":
+            ui.escape()
         elif op == "channel_info":
             res["channel"] = _channel_info(int(p["channel"]))
         elif op == "channel_types":

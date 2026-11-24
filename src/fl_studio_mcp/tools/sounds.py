@@ -106,6 +106,11 @@ def browser_segments(path: str, roots: list[Path]) -> list[str] | None:
     """Browser path for a stock sound: the folders under FL's Patches folder
     match the Browser's top-level folders (Packs, Channel presets, ...). PURE."""
     full = os.path.normpath(path)
+    for il in paths.image_line_dirs():
+        # FL's user "Audio" folder is a top-level Browser entry too.
+        audio = os.path.normpath(str(il / "FL Studio" / "Audio"))
+        if full.startswith(audio + os.sep):
+            return ["Audio"] + full[len(audio) + 1:].split(os.sep)
     for r in roots:
         if Path(r).name != "Patches":
             continue
@@ -140,6 +145,22 @@ ROLES: dict[str, dict] = {
     "Pad":      {"words": ["pad", "choir", "strings", "aahs", "atmos", "string"], "avoid": []},
 }
 KITS = kit_data.KITS
+
+
+def find_channel(names: list[str], channel: str) -> int | None:
+    """Channel index for a name or number: an exact name wins (a channel
+    named "808" is that channel, not channel 808), then a number, then a
+    partial name. None = 'new'; -1 = not found. PURE."""
+    want = str(channel).strip().lower()
+    if want == "new":
+        return None
+    exact = [i for i, n in enumerate(names) if n.strip().lower() == want]
+    if exact:
+        return exact[0]
+    if want.isdigit():
+        return int(want)
+    part = [i for i, n in enumerate(names) if want in n.lower()]
+    return part[0] if part else -1
 
 
 def _patches(roots: list[Path]) -> list[Path]:
@@ -301,6 +322,15 @@ def browse_and_enter(path: str, roots: list[Path]) -> dict:
     name = segs[-1]
     r = _call("find", name=name)
     trail.append({"find": name, "found": r.get("found"), "steps": r.get("steps")})
+    if not r.get("found") and len(segs) > 1:
+        # A file copied in a moment ago may not be listed yet: close and
+        # reopen its folder so FL re-reads it, then look again.
+        if _call("find", name=segs[-2], direction=-1).get("found"):
+            _call("toggle", value=-1)
+            time.sleep(0.4)
+            _call("toggle", value=-1)
+            r = _call("find", name=name)
+            trail.append({"refresh": segs[-2], "found": r.get("found")})
     if not r.get("found"):
         _collapse(opened)
         return {"ok": False, "error": "Couldn't find '%s' in FL's Browser." % name, "trail": trail}
@@ -404,48 +434,128 @@ def load_into_channel(path: str, channel: int, roots: list[Path]) -> dict:
     return r
 
 
-def new_channel(path: str, roots: list[Path]) -> dict:
-    """Load an instrument preset with no instrument window open: FL makes a
-    NEW channel for it (verified FL 2026.1.7). Returns its index."""
-    _call("hide_editors")
-    before = _count()
-    r = browse_and_enter(path, roots)
-    if not r.get("ok"):
-        return r
-    after = _wait(lambda: (lambda n: n if n > before else 0)(_count()))
-    if not after:
-        return {"ok": False, "error": "FL didn't add a channel for %s." % os.path.basename(path)}
-    r.update(ok=True, channel=after - 1, new=True)
-    return r
+def _snap() -> dict:
+    """Names, types and mixer routing of every channel (to see what a load did)."""
+    data = fetch_all_pages(get_bridge(), protocol.CMD_CHANNEL_ROUTING_SUMMARY, "channels")
+    chans = data.get("channels") or []
+    t = _call("channel_types", start=0)
+    types = list(t.get("types") or [])
+    return {"names": [str(c.get("name", "")) for c in chans],
+            "targets": [int(c.get("target_mixer_track") or 0) for c in chans],
+            "types": types}
 
 
-def place_instrument(path: str, ch: int | None, roots: list[Path]) -> dict:
-    """Instrument preset onto channel `ch` (its window is opened and focused,
-    so FL loads into it), or onto a new channel when `ch` is None. Falls back
-    to a new channel if FL doesn't take it on `ch`."""
+def diff_snap(before: dict, after: dict) -> dict:
+    """What changed between two snapshots. PURE."""
+    nb, na = len(before["names"]), len(after["names"])
+    changed = [i for i in range(min(nb, na))
+               if before["names"][i] != after["names"][i]
+               or (i < len(before["types"]) and i < len(after["types"])
+                   and before["types"][i] != after["types"][i])]
+    return {"changed": changed, "added": list(range(nb, na)) if na > nb else []}
+
+
+def _undo(times: int = 1) -> None:
+    for _ in range(times):
+        try:
+            _call("undo")
+            time.sleep(0.3)
+        except Exception:
+            pass
+
+
+def _relink(ch: int, track: int) -> None:
+    """Channel presets carry their own mixer routing: put the old one back."""
+    try:
+        if track and _routing().get(ch, 0) != track:
+            _write(protocol.CMD_CHANNEL_LINK_MIXER, {"channel": ch, "track": track})
+    except Exception:
+        pass
+
+
+def _try_instrument(path: str, ch: int, roots: list[Path], focus: bool) -> dict:
+    """One attempt: select `ch` (own call), optionally open its window, Enter.
+    Returns what happened: replaced / new / wrong (undone) / nothing."""
     stem = os.path.basename(path).rsplit(".", 1)[0].lower()
-    if ch is None:
-        r = new_channel(path, roots)
-        r["kind"] = "instrument"
-        return r
+    before = _snap()
     _call("hide_editors")
-    select_channel(ch)
-    _call("focus_editor", channel=ch)
-    time.sleep(0.3)
-    before = _count()
+    if not select_channel(ch):
+        return {"result": "nothing", "error": "FL didn't select channel %d." % ch}
+    if focus:
+        _call("focus_editor", channel=ch)
+        time.sleep(0.3)
     r = browse_and_enter(path, roots)
     if not r.get("ok"):
-        return r
-    _wait(lambda: _name_of(ch).strip().lower() == stem or _count() > before)
-    if _name_of(ch).strip().lower() == stem:
-        r.update(ok=True, channel=ch, kind="instrument")
-    elif _count() > before:
-        r.update(ok=True, channel=_count() - 1, new=True, kind="instrument",
-                 note="FL put it on a new channel instead of channel %d." % ch)
-    else:
-        r.update(ok=False, kind="instrument", error="FL didn't load %s." % os.path.basename(path))
+        return {"result": "nothing", **r}
+
+    def moved():
+        a = _snap()
+        d = diff_snap(before, a)
+        return (a, d) if (d["changed"] or d["added"]) else None
+    got = _wait(moved, 3.0) or (before, {"changed": [], "added": []})
+    after, d = got
     _call("hide_editors")
-    return r
+    if d["changed"] == [ch] and not d["added"]:
+        if after["names"][ch].strip().lower() == stem or after["types"][ch] != before["types"][ch] \
+                or stem == "sampler":
+            return {"result": "replaced", "channel": ch, "after": after}
+    if d["added"] and not d["changed"]:
+        return {"result": "new", "channel": d["added"][-1], "after": after}
+    if d["changed"] or d["added"]:
+        _undo()
+        return {"result": "wrong", "touched": d}
+    return {"result": "nothing"}
+
+
+def place_instrument(path: str, ch: int | None, roots: list[Path], _converted: bool = False) -> dict:
+    """Instrument or channel preset onto channel `ch`, or onto a new channel
+    when `ch` is None. Every attempt is checked against a snapshot; anything
+    that lands on the wrong channel is undone. Restores the channel's mixer
+    routing (channel presets carry their own)."""
+    name = os.path.basename(path)
+    if ch is None:
+        return new_channel(path, roots)
+    route = _routing().get(ch, 0)
+    tried = []
+    for focus in (False, True):
+        t = _try_instrument(path, ch, roots, focus)
+        tried.append(t.get("result"))
+        if t["result"] == "replaced":
+            _relink(ch, route)
+            return {"ok": True, "kind": "instrument", "channel": ch, "sound": name, "tried": tried}
+        if t["result"] == "new":
+            # FL made a new channel instead; keep it (nothing was overwritten).
+            return {"ok": True, "kind": "instrument", "channel": t["channel"], "new": True,
+                    "sound": name, "tried": tried,
+                    "note": "FL put it on a new channel instead of channel %d." % ch}
+    if not _converted and _type_of(ch) not in (CT_SAMPLER, CT_AUDIOCLIP, None):
+        # Same-synth presets can be ignored by FL: swap in a Sampler first.
+        sampler = _existing(kit_data.SAMPLER, roots)
+        if sampler and place_instrument(sampler, ch, roots, _converted=True).get("ok"):
+            r = place_instrument(path, ch, roots, _converted=True)
+            r.setdefault("tried", tried)
+            return r
+    return {"ok": False, "kind": "instrument", "sound": name, "tried": tried,
+            "error": "FL didn't load %s onto channel %d (nothing else was changed)." % (name, ch)}
+
+
+def new_channel(path: str, roots: list[Path]) -> dict:
+    """Make a NEW channel from an instrument preset. FL adds a channel when
+    the selected channel's own window is open and focused (verified once on
+    FL 2026.1.7); if it replaces a channel instead, that is undone."""
+    before = _snap()
+    sel = int(_call("state").get("selected_channel") or 0)
+    for focus in (True, False):
+        t = _try_instrument(path, sel, roots, focus)
+        if t["result"] == "new":
+            return {"ok": True, "kind": "instrument", "channel": t["channel"], "new": True,
+                    "sound": os.path.basename(path)}
+        if t["result"] == "replaced":
+            _undo()
+    del before
+    return {"ok": False, "kind": "instrument",
+            "error": "FL wouldn't add a new channel from a script here. Add one empty channel "
+                     "(Channel rack + > Sampler) and load into it."}
 
 
 def make_sampler(ch: int | None, roots: list[Path]) -> dict:
@@ -455,7 +565,7 @@ def make_sampler(ch: int | None, roots: list[Path]) -> dict:
         return {"ok": False, "error": "Couldn't find FL's Sampler."}
     if ch is None:
         return new_channel(sampler, roots)
-    r = place_instrument(sampler, ch, roots)
+    r = place_instrument(sampler, ch, roots, _converted=True)
     if r.get("ok") and _wait(lambda: _type_of(r["channel"]) == CT_SAMPLER):
         return r
     return {"ok": False, "error": "Couldn't turn channel %d into a sampler." % ch, "step": r}
@@ -477,21 +587,43 @@ def place_sample(path: str, ch: int | None, roots: list[Path], replace_instrumen
     return r
 
 
+def _fx_map(tracks: list[int]) -> dict[int, list[str]]:
+    return {t: _plugins_on(t) for t in tracks}
+
+
 def place_effect(path: str, track: int, roots: list[Path]) -> dict:
-    """Effect preset onto mixer insert `track` (selected in its own call)."""
+    """Effect preset into the next free slot of mixer insert `track`. Checks
+    every insert the project uses; an effect that replaced or landed on the
+    wrong insert is undone and tried once more with plugin windows closed."""
     if track <= 0:
         return {"ok": False, "error": "Route the channel to a mixer insert before adding effects."}
-    if not select_mixer(track):
-        return {"ok": False, "error": "FL didn't select mixer insert %d." % track}
-    before = _plugins_on(track)
-    r = browse_and_enter(path, roots)
-    if not r.get("ok"):
-        return r
-    after = _wait(lambda: (lambda a: a if len(a) > len(before) else None)(_plugins_on(track))) or before
-    r.update(kind="effect", mixer_track=track, effects=after)
-    if len(after) <= len(before):
-        r.update(ok=False, error="FL didn't add %s to mixer insert %d." % (os.path.basename(path), track))
-    return r
+    name = os.path.basename(path)
+    watch = sorted({0, track} | {t for t in _routing().values() if t > 0})
+    for attempt in range(2):
+        before = _fx_map(watch)
+        if attempt:
+            _call("escape")
+            time.sleep(0.3)
+        if not select_mixer(track):
+            return {"ok": False, "error": "FL didn't select mixer insert %d." % track}
+        r = browse_and_enter(path, roots)
+        if not r.get("ok"):
+            return r
+
+        def moved():
+            a = _fx_map(watch)
+            return a if a != before else None
+        after = _wait(moved, 3.0) or before
+        grew = len(after[track]) > len(before[track]) and after[track][:len(before[track])] == before[track]
+        others = [t for t in watch if t != track and after[t] != before[t]]
+        replaced = (len(after[track]) == len(before[track]) and after[track] != before[track])
+        if grew and not others:
+            return {"ok": True, "kind": "effect", "mixer_track": track, "effects": after[track],
+                    "sound": name}
+        if others or replaced:
+            _undo()
+    return {"ok": False, "kind": "effect", "mixer_track": track, "sound": name,
+            "error": "FL didn't add %s to mixer insert %d (anything it put elsewhere was undone)." % (name, track)}
 
 
 def place(path: str, ch: int | None, roots: list[Path], replace_instrument: bool = True) -> dict:
@@ -562,19 +694,10 @@ def register(mcp: FastMCP) -> None:
                 return {"ok": False, "error": "No FL Studio stock sound matches '%s'." % sound}
             path = hits[0]["path"]
         chans = _channels()
-        target: int | None
-        if str(channel).strip().lower() == "new":
-            target = None
-        elif str(channel).strip().isdigit():
-            target = int(str(channel).strip())
-        else:
-            want = str(channel).strip().lower()
-            pick = ([c["i"] for c in chans if c["name"].lower() == want]
-                    or [c["i"] for c in chans if want in c["name"].lower()])
-            if not pick:
-                return {"ok": False, "error": "No channel named '%s'." % channel,
-                        "channels": [c["name"] for c in chans]}
-            target = pick[0]
+        target = find_channel([c["name"] for c in chans], str(channel))
+        if target == -1:
+            return {"ok": False, "error": "No channel named '%s'." % channel,
+                    "channels": [c["name"] for c in chans]}
         if target is not None and target >= len(chans):
             return {"ok": False, "error": "There is no channel %d." % target}
         preview = safety.preview_write(tool="fl_load_sound", command=protocol.CMD_BROWSER,

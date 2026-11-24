@@ -11,11 +11,13 @@ from __future__ import annotations
 # Lowest edition that includes each Image-Line instrument (best known for
 # FL Studio 2024-2026; the trial includes everything). Unknown plugins are
 # treated as Producer.
-EDITION_RANK = {"fruity": 0, "producer": 1, "signature": 2, "all_plugins": 3, "trial": 3}
+# A trial runs as whichever edition was picked on FL's start screen (verified:
+# Sakura was refused in a 2026.1.7 trial), so treat it like Producer.
+EDITION_RANK = {"fruity": 0, "producer": 1, "signature": 2, "all_plugins": 3, "trial": 1}
 PLUGIN_TIER = {
     "3x osc": "fruity", "fl keys": "fruity", "simsynth": "fruity", "boobass": "fruity",
     "fruity dx10": "fruity", "plucked!": "fruity", "sampler": "fruity", "flex": "fruity",
-    "sytrus": "producer", "sakura": "producer", "poizone": "producer", "harmless": "producer",
+    "sytrus": "producer", "sakura": "signature", "poizone": "producer", "harmless": "producer",
     "sawer": "producer", "toxic biohazard": "producer", "kepler": "producer", "directwave": "producer",
     "ogun": "signature", "harmor": "all_plugins", "kepler exo": "all_plugins",
 }

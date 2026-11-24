@@ -55,6 +55,7 @@ from .tools import transport as transport_tools
 from .tools import capabilities as capabilities_tools
 from .tools import loader as loader_tools
 from .tools import sounds as sounds_tools
+from .tools import loops as loops_tools
 from .tools import playlist as playlist_tools
 from .tools import vst as vst_tools
 
@@ -72,7 +73,8 @@ BEGINNERS FIRST
   top / punch in). Before the first beat, call fl_load_kit with the style
   (dark_trap, drill, boom_bap, rnb): it loads matched drums, 808,
   instruments, mixer levels and effects. Swap single sounds, instruments or
-  effects with fl_find_sounds + fl_load_sound. Reach for the low-level fl_* tools only when those can't
+  effects with fl_find_sounds + fl_load_sound. To build a beat around a
+  sample loop the user downloaded, call fl_build_around_loop. Reach for the low-level fl_* tools only when those can't
   do what was asked. Tell the user what you're about to make before writing,
   and remind them "undo" works (fl_rollback_last_change).
 
@@ -124,6 +126,7 @@ def build_server() -> FastMCP:
     steps_tools.register(mcp)       # Step sequencer: read/write drum steps (safety layer)
     drums_tools.register(mcp)       # Drums to MIDI, optionally into the step sequencer
     sounds_tools.register(mcp)      # 0.1.6: load stock sounds + starter kits via FL's Browser
+    loops_tools.register(mcp)       # 0.1.9: build a beat around a downloaded loop
     pattern_tools.register(mcp)     # E-2: pattern list/select/rename/get_length
     capabilities_tools.register(mcp)
     loader_tools.register(mcp)
